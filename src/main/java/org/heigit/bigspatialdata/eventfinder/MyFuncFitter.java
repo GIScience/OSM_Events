@@ -1,7 +1,6 @@
-package EventFinder;
+package org.heigit.bigspatialdata.eventfinder;
 
 import java.util.Collection;
-
 import org.apache.commons.math3.analysis.ParametricUnivariateFunction;
 import org.apache.commons.math3.fitting.AbstractCurveFitter;
 import org.apache.commons.math3.fitting.WeightedObservedPoint;
