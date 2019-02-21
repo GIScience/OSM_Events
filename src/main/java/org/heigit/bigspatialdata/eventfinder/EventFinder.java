@@ -2,38 +2,44 @@ package org.heigit.bigspatialdata.eventfinder;
 
 // import java.io.File;
 // import java.io.PrintWriter;
-import com.vividsolutions.jts.geom.Coordinate;
+import com.vividsolutions.jts.geom.GeometryFactory;
+import com.vividsolutions.jts.geom.Polygon;
+import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 import java.util.SortedMap;
-import java.util.TreeMap;
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.time.DateUtils;
 import org.apache.commons.math3.fitting.WeightedObservedPoint;
 import org.heigit.bigspatialdata.oshdb.api.db.OSHDBH2;
+import org.heigit.bigspatialdata.oshdb.api.generic.OSHDBCombinedIndex;
 import org.heigit.bigspatialdata.oshdb.api.mapreducer.OSMContributionView;
-import org.heigit.bigspatialdata.oshdb.api.object.OSMContribution;
+import org.heigit.bigspatialdata.oshdb.osm.OSMType;
 import org.heigit.bigspatialdata.oshdb.util.OSHDBBoundingBox;
-import org.heigit.bigspatialdata.oshdb.util.OSHDBTag;
 import org.heigit.bigspatialdata.oshdb.util.OSHDBTimestamp;
-import org.heigit.bigspatialdata.oshdb.util.celliterator.ContributionType;
 import org.heigit.bigspatialdata.oshdb.util.time.OSHDBTimestamps;
+import org.wololo.geojson.Feature;
+import org.wololo.geojson.FeatureCollection;
+import org.wololo.geojson.GeoJSONFactory;
+import org.wololo.jts2geojson.GeoJSONReader;
 
 public class EventFinder {
 
   // this should be replaced with an iteration over grid cells at the highest 
   public static void main(String[] args) throws Exception {
-    OSHDBH2 oshdbKeytables = new OSHDBH2("C:\\Research Projects\\MapWars\\keytables");
-    // OSHDB_H2 oshdb = (new OSHDB_H2("C:\\Research Projects\\MapWars\\Case Study Results\\Katmandu\\nepal_20180201_z12_keytables.oshdb")).multithreading(true); // Nepal
+    // OSHDBH2 oshdb = (new OSHDBH2("C:\\Research Projects\\MapWars\\Case Study Results\\Katmandu\\nepal_20180201_z12_keytables.oshdb")).multithreading(true); // Nepal
     // OSHDBBoundingBox bb = new OSHDBBoundingBox(85.2880, 85.3383, 27.6675, 27.7378); // Katmandu
     // OSHDBBoundingBox bb = new OSHDBBoundingBox(85.2377, 85.2880, 27.5947, 27.6675); //near katmandu
-    OSHDBH2 oshdb = (new OSHDBH2("C:\\Research Projects\\MapWars\\israel-and-palestine.oshdb"))
-        .multithreading(true);
-    OSHDBBoundingBox bb = new OSHDBBoundingBox(34.72, 34.85, 32.03, 32.14); // TLV
+    OSHDBH2 oshdb = (new OSHDBH2("/data_ssd/heidelberg.oshdb")).multithreading(true).inMemory(true);
+    //OSHDBBoundingBox bb = new OSHDBBoundingBox(34.72, 34.85, 32.03, 32.14); // TLV
     // OSHDBBoundingBox bb = new OSHDBBoundingBox(34.2, 34.6, 31.2, 31.6); // Gaza
-    ArrayList<Mapping_Event> events = get_event(bb, oshdb, oshdbKeytables);
+    OSHDBBoundingBox bb = new OSHDBBoundingBox(-180, -90, 180, 90); // Global
+    ArrayList<Mapping_Event> events = get_event(bb, oshdb);
     for (Mapping_Event e : events) {
       System.out.println(e.get_t().toDate() + "," + e.get_users() + "," + e
           .get_contributions() + "," + e.get_max_contribution() + "," + e.get_change() + "," + e
@@ -53,204 +59,170 @@ public class EventFinder {
  * For each event, the procedure records information regarding its date, number of active users, number of actions, maximal number of actions by a single user, relative change in the database size, 
  * and number of contributions by type.
    */
-  public static ArrayList<Mapping_Event> get_event(OSHDBBoundingBox bb, OSHDBH2 oshdb,
-      OSHDBH2 oshdbKeytables) throws Exception {
+  public static ArrayList<Mapping_Event> get_event(OSHDBBoundingBox bb, OSHDBH2 oshdb)
+      throws Exception {
     // saves objects of type Mapping_Event which stores the month of the event, the number of active mappers, number of contributions, and maximal number of contributions by one user
     ArrayList<Mapping_Event> out = new ArrayList<Mapping_Event>();
+    //read geometries
+    ClassLoader classloader = Thread.currentThread().getContextClassLoader();
+    InputStream is = classloader.getResourceAsStream("grid_20000.geojson");
+    String json = IOUtils.toString(is);
+    Map<Integer, Polygon> geometries = new HashMap<>();
+    FeatureCollection featureCollection = (FeatureCollection) GeoJSONFactory.create(json);
+    GeometryFactory gf = new GeometryFactory();
+    GeoJSONReader gjr = new GeoJSONReader();
+
+    Integer featureId = 0;
+    for (Feature f : featureCollection.getFeatures()) {
+      geometries.put(featureId,
+          gf.createPolygon(gjr.read(f.getGeometry()).getCoordinates()));
+      featureId++;
+    }
 
     // collect contributions by month
-    SortedMap<OSHDBTimestamp, List<OSMContribution>> result = OSMContributionView.on(oshdb)
-        .keytables(oshdbKeytables)
+    SortedMap<OSHDBCombinedIndex<Integer, OSHDBTimestamp>, Number> result = OSMContributionView
+        .on(oshdb)
         .areaOfInterest(bb)
+        //Relations make this VERY slow!!! We could include multipolygons seperately. Also: Do we have duplicate edites
+        .osmType(OSMType.NODE, OSMType.WAY)
         .timestamps("2004-01-01", "2019-02-01", OSHDBTimestamps.Interval.MONTHLY)
-        .aggregateByTimestamp()
-        .collect();
+        .aggregateByGeometry(geometries)
+        .aggregateByTimestamp(contribution ->
+            new OSHDBTimestamp(
+                DateUtils.round(contribution.getTimestamp().toDate(), Calendar.MONTH)
+            )
+        )
+        .map(new MapFunk())
+        .sum();
 
-    // remove entries before first contribution
-    while (result.get(result.firstKey()).size() == 0) {
-      result.remove(result.firstKey());
-    }
-
-    // remove entries after last contribution
-    while (result.get(result.lastKey()).size() == 0) {
-      result.remove(result.lastKey());
-    }
-
-    // count contribution actions by month
-    HashMap<OSHDBTimestamp, Integer> contributions = new HashMap<OSHDBTimestamp, Integer>();
-    for (OSHDBTimestamp t : result.keySet()) {
-      int count = 0;
-      for (OSMContribution c : result.get(t)) {
-        if (c.getContributionTypes().contains(ContributionType.DELETION)) {
-          count = count + 1; // a deletion is considered as one action
-        } else if (c.getContributionTypes().contains(ContributionType.CREATION)) {
-          count += c.getGeometryAfter().getCoordinates().length;
-          Iterator<OSHDBTag> tags = c.getEntityAfter().getTags().iterator();
-          while (tags.hasNext()) {
-            tags.next();
-            count++;
-          }// each addition of a coordinate and of a tag is considered an action
-        } else {
-          // for modifications - each addition and deletion of coordinate or tag is considered an action
-          List<Coordinate> c_aft = Arrays.asList(c.getGeometryAfter().getCoordinates());
-          List<Coordinate> c_bef = Arrays.asList(c.getGeometryBefore().getCoordinates());
-          if (!c_aft.equals(c_bef)) {
-            int coord_additions = 0;
-            for (Coordinate coord : c_aft) {
-              if (!c_bef.contains(coord)) {
-                coord_additions += 1;
-              }
-            }
-
-            int coord_dels = 0;
-            for (Coordinate coord : c_bef) {
-              if (!c_aft.contains(coord)) {
-                coord_dels += 1;
-              }
-            }
-
-            count = count + coord_additions + coord_dels;
-          }
-
-          List<OSHDBTag> t_aft = new ArrayList<>();
-          List<OSHDBTag> t_bef = new ArrayList<>();
-          for (OSHDBTag i : c.getEntityAfter().getTags()) {
-            t_aft.add(i);
-          }
-          for (OSHDBTag i : c.getEntityBefore().getTags()) {
-            t_bef.add(i);
-          }
-          if (!t_aft.equals(t_bef)) {
-            int tags_adds = 0;
-            for (OSHDBTag tag : t_aft) {
-              if (!t_bef.contains(tag)) {
-                tags_adds += 1;
-              }
-            }
-
-            int tags_dels = 0;
-            for (OSHDBTag tag : t_bef) {
-              if (!t_aft.contains(tag)) {
-                tags_dels += 1;
-              }
-            }
-
-            count = count + tags_dels + tags_adds;
-          }
-        }
-      }
-      contributions.put(t, count);
-    }
-
+    //TODO: remove empty results again
+//    // remove entries before first contribution
+//    while (result.get(result.firstKey()).size() == 0) {
+//      result.remove(result.firstKey());
+//    }
+//
+//    // remove entries after last contribution
+//    while (result.get(result.lastKey()).size() == 0) {
+//      result.remove(result.lastKey());
+//    }
     /* for (OSHDBTimestamp t:contributions.keySet()) {
-			System.out.println(t.formatIsoDateTime()+": "+contributions.get(t));
-		} */
-    // create accumulative data
-    ArrayList<OSHDBTimestamp> t = new ArrayList<OSHDBTimestamp>();
-    SortedMap<OSHDBTimestamp, Integer> acc_result = new TreeMap<OSHDBTimestamp, Integer>();
-    Integer conts = 0;
-    for (OSHDBTimestamp tt : result.keySet()) {
-      conts = conts + contributions.get(tt);
-      acc_result.put(tt, conts);
-      t.add(tt);
-    }
-
-    // create data for curve fitting
-    ArrayList<WeightedObservedPoint> points = new ArrayList<WeightedObservedPoint>();
-    int i = 0;
-    Iterator<Integer> values = acc_result.values().iterator();
-    while (values.hasNext()) {
-      float v = (float) values.next();
-      WeightedObservedPoint point = new WeightedObservedPoint(1.0, i, v);
-      points.add(point);
-      i++;
-    }
-
-    // fit curve
-    MyFuncFitter fitter = new MyFuncFitter();
-    double[] coeffs = fitter.fit(points);
-
-    // compute errors
-    HashMap<OSHDBTimestamp, Double> errors = new HashMap<OSHDBTimestamp, Double>();
-    for (i = 0; i < points.size(); i++) {
-      Double value = coeffs[0] / (1.0 + coeffs[1] * Math.exp(-coeffs[2] * (i - coeffs[3])));
-      errors.put(t.get(i), acc_result.get(t.get(i)) - value);
-    }
-
-    /* PrintWriter pw = new PrintWriter(new File("C:\\temp\\near_kat_contributions.csv"));
-        StringBuilder sb = new StringBuilder();
-        sb.append("Date,Number,Dev\n");
-        for (OSHDBTimestamp tt:result.keySet()) {
-        	sb.append(tt+","+acc_result.get(tt)+","+ests.get(tt)+"\n");
+    System.out.println(t.formatIsoDateTime()+": "+contributions.get(t));
+    } */
+    //devide result into resulty per geometry
+    SortedMap<Integer, SortedMap<OSHDBTimestamp, Number>> nest = OSHDBCombinedIndex.nest(result);
+    nest.forEach((Integer geom, SortedMap<OSHDBTimestamp, Number> geomContributions) -> {
+      geomContributions.forEach((OSHDBTimestamp ts, Number nr) -> {
+        if (nr.intValue() > 0) {
+          System.out.println(
+              "Geom nr. " + geom + " at timestamp " + ts + " had " + nr + " contributions"
+          );
         }
-	    pw.write(sb.toString());
-	    pw.close(); */
-    // get lagged errors
-    HashMap<OSHDBTimestamp, Double> lagged_errors = new HashMap<OSHDBTimestamp, Double>();
-    for (i = 1; i < result.keySet().size(); i++) {
-      Double value = errors.get(result.keySet().toArray()[i]) - errors.get(result.keySet()
-          .toArray()[i - 1]);
-      lagged_errors.put((OSHDBTimestamp) result.keySet().toArray()[i], value);
-    }
+      });
+//      // create data for curve fitting
+//      ArrayList<WeightedObservedPoint> points = new ArrayList<WeightedObservedPoint>();
+//      int i = 0;
+//      Iterator<Number> values = geomContributions.values().iterator();
+//      while (values.hasNext()) {
+//        //error here
+//        float v = (float) values.next();
+//        WeightedObservedPoint point = new WeightedObservedPoint(1.0, i, v);
+//        points.add(point);
+//        i++;
+//      }
+//
+//      // fit curve
+//      MyFuncFitter fitter = new MyFuncFitter();
+//      double[] coeffs = fitter.fit(points);
+//
+//      // compute errors
+//      HashMap<OSHDBTimestamp, Double> errors = new HashMap<OSHDBTimestamp, Double>();
+//      Iterator<Entry<OSHDBTimestamp, Number>> iterator = geomContributions.entrySet().iterator();
+//      int counter = 0;
+//      while (iterator.hasNext()) {
+//        Entry<OSHDBTimestamp, Number> next = iterator.next();
+//        Double value = coeffs[0] / (1.0 + coeffs[1] * Math.exp(-coeffs[2] * (counter - coeffs[3])));
+//        //TODO: is this convertet to double?
+//        errors.put(next.getKey(), next.getValue().intValue() - value);
+//      }
+//
+//      /* PrintWriter pw = new PrintWriter(new File("C:\\temp\\near_kat_contributions.csv"));
+//        StringBuilder sb = new StringBuilder();
+//        sb.append("Date,Number,Dev\n");
+//        for (OSHDBTimestamp tt:result.keySet()) {
+//        	sb.append(tt+","+acc_result.get(tt)+","+ests.get(tt)+"\n");
+//        }
+//	    pw.write(sb.toString());
+//	    pw.close(); */
+//      // get lagged errors
+//      HashMap<OSHDBTimestamp, Double> lagged_errors = new HashMap<OSHDBTimestamp, Double>();
+//      for (i = 1; i < result.keySet().size(); i++) {
+//        Double value = errors.get(result.keySet().toArray()[i]) - errors.get(result.keySet()
+//            .toArray()[i - 1]);
+//        lagged_errors.put((OSHDBTimestamp) result.keySet().toArray()[i], value);
+//      }
+//
+//      // compute mean and standard deviation for lagged errors
+//      Double mean = 0.;
+//      for (Double err : lagged_errors.values()) {
+//        mean = mean + err;
+//      }
+//      mean = mean / lagged_errors.size();
+//      double std = 0.;
+//      for (double num : lagged_errors.values()) {
+//        std += Math.pow(num - mean, 2);
+//      }
+//      std = Math.sqrt(std / (lagged_errors.size() - 1.));
+//
+//      //TODO: move also to server and return events instead of numbers. afterwards aggregate events and classify them
+////      // identify events
+////      for (i = 1; i < result.keySet().size(); i++) {
+////        OSHDBTimestamp m = (OSHDBTimestamp) result.keySet().toArray()[i];
+////        OSHDBTimestamp m_lag = (OSHDBTimestamp) result.keySet().toArray()[i - 1];
+////        Double error = (lagged_errors.get(m) - mean) / std; // normalized error
+////        if (error > 1.644854) { // if error is positively significant at 95% - create event
+////          HashMap<Integer, Integer> users_conts = new HashMap<Integer, Integer>();
+////          HashMap<ContributionType, Integer> type_counts = new HashMap<ContributionType, Integer>();
+////          type_counts.put(ContributionType.CREATION, 0);
+////          type_counts.put(ContributionType.DELETION, 0);
+////          type_counts.put(ContributionType.GEOMETRY_CHANGE, 0);
+////          type_counts.put(ContributionType.TAG_CHANGE, 0);
+////
+////          for (OSMContribution c : result.get(m)) {
+////            Integer user = c.getContributorUserId();
+////            if (!users_conts.containsKey(user)) {
+////              users_conts.put(user, 1);
+////            } else {
+////              users_conts.put(user, users_conts.get(user) + 1);
+////            }
+////
+////            if (c.getContributionTypes().contains(ContributionType.CREATION)) {
+////              type_counts.put(ContributionType.CREATION,
+////                  type_counts.get(ContributionType.CREATION) + 1);
+////            }
+////            if (c.getContributionTypes().contains(ContributionType.DELETION)) {
+////              type_counts.put(ContributionType.DELETION,
+////                  type_counts.get(ContributionType.DELETION) + 1);
+////            }
+////            if (c.getContributionTypes().contains(ContributionType.GEOMETRY_CHANGE)) {
+////              type_counts.put(ContributionType.GEOMETRY_CHANGE, type_counts.get(
+////                  ContributionType.GEOMETRY_CHANGE) + 1);
+////            }
+////            if (c.getContributionTypes().contains(ContributionType.TAG_CHANGE)) {
+////              type_counts.put(ContributionType.TAG_CHANGE, type_counts.get(
+////                  ContributionType.TAG_CHANGE) + 1);
+////            }
+////          }
+////          Mapping_Event e = new Mapping_Event(m, users_conts.keySet().size(),
+////              acc_result.get(m) - acc_result.get(m_lag), Collections.max(users_conts.values()),
+////              ((float) (acc_result.get(m) - (float) acc_result.get(m_lag)) / (float) acc_result.get(
+////              m_lag)), type_counts);
+////          out.add(e); // add to list of events
+////        }
+////      }
+////      return out;
+    });
 
-    // compute mean and standard deviation for lagged errors
-    Double mean = 0.;
-    for (Double err : lagged_errors.values()) {
-      mean = mean + err;
-    }
-    mean = mean / lagged_errors.size();
-    double std = 0.;
-    for (double num : lagged_errors.values()) {
-      std += Math.pow(num - mean, 2);
-    }
-    std = Math.sqrt(std / (lagged_errors.size() - 1.));
-
-    // identify events
-    for (i = 1; i < result.keySet().size(); i++) {
-      OSHDBTimestamp m = (OSHDBTimestamp) result.keySet().toArray()[i];
-      OSHDBTimestamp m_lag = (OSHDBTimestamp) result.keySet().toArray()[i - 1];
-      Double error = (lagged_errors.get(m) - mean) / std; // normalized error
-      if (error > 1.644854) { // if error is positively significant at 95% - create event
-        HashMap<Integer, Integer> users_conts = new HashMap<Integer, Integer>();
-        HashMap<ContributionType, Integer> type_counts = new HashMap<ContributionType, Integer>();
-        type_counts.put(ContributionType.CREATION, 0);
-        type_counts.put(ContributionType.DELETION, 0);
-        type_counts.put(ContributionType.GEOMETRY_CHANGE, 0);
-        type_counts.put(ContributionType.TAG_CHANGE, 0);
-
-        for (OSMContribution c : result.get(m)) {
-          Integer user = c.getContributorUserId();
-          if (!users_conts.containsKey(user)) {
-            users_conts.put(user, 1);
-          } else {
-            users_conts.put(user, users_conts.get(user) + 1);
-          }
-
-          if (c.getContributionTypes().contains(ContributionType.CREATION)) {
-            type_counts.put(ContributionType.CREATION,
-                type_counts.get(ContributionType.CREATION) + 1);
-          }
-          if (c.getContributionTypes().contains(ContributionType.DELETION)) {
-            type_counts.put(ContributionType.DELETION,
-                type_counts.get(ContributionType.DELETION) + 1);
-          }
-          if (c.getContributionTypes().contains(ContributionType.GEOMETRY_CHANGE)) {
-            type_counts.put(ContributionType.GEOMETRY_CHANGE, type_counts.get(
-                ContributionType.GEOMETRY_CHANGE) + 1);
-          }
-          if (c.getContributionTypes().contains(ContributionType.TAG_CHANGE)) {
-            type_counts.put(ContributionType.TAG_CHANGE, type_counts.get(
-                ContributionType.TAG_CHANGE) + 1);
-          }
-        }
-        Mapping_Event e = new Mapping_Event(m, users_conts.keySet().size(),
-            acc_result.get(m) - acc_result.get(m_lag), Collections.max(users_conts.values()),
-            ((float) (acc_result.get(m) - (float) acc_result.get(m_lag)) / (float) acc_result.get(
-            m_lag)), type_counts);
-        out.add(e); // add to list of events
-      }
-    }
-    return out;
+    return null;
   }
 
 }
