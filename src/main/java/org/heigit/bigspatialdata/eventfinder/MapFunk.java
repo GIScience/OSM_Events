@@ -1,19 +1,21 @@
 package org.heigit.bigspatialdata.eventfinder;
 
-import com.vividsolutions.jts.geom.Coordinate;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import org.heigit.bigspatialdata.oshdb.api.generic.function.SerializableFunction;
 import org.heigit.bigspatialdata.oshdb.api.object.OSMContribution;
 import org.heigit.bigspatialdata.oshdb.util.OSHDBTag;
 import org.heigit.bigspatialdata.oshdb.util.celliterator.ContributionType;
+import org.locationtech.jts.geom.Coordinate;
 
-public class MapFunk implements SerializableFunction<OSMContribution, Integer> {
+public class MapFunk implements SerializableFunction<OSMContribution, MappingMonth> {
 
   @Override
-  public Integer apply(OSMContribution c) {
+  public MappingMonth apply(OSMContribution c) {
     int count = 0;
     if (c.getContributionTypes().contains(ContributionType.DELETION)) {
       count = count + 1; // a deletion is considered as one action
@@ -73,7 +75,38 @@ public class MapFunk implements SerializableFunction<OSMContribution, Integer> {
         count = count + tags_dels + tags_adds;
       }
     }
-    return count;
+    HashMap<Integer, Integer> users_conts = new HashMap<Integer, Integer>();
+    HashMap<ContributionType, Integer> type_counts = new HashMap<ContributionType, Integer>();
+    type_counts.put(ContributionType.CREATION, 0);
+    type_counts.put(ContributionType.DELETION, 0);
+    type_counts.put(ContributionType.GEOMETRY_CHANGE, 0);
+    type_counts.put(ContributionType.TAG_CHANGE, 0);
+    Integer user = c.getContributorUserId();
+    if (!users_conts.containsKey(user)) {
+      users_conts.put(user, 1);
+    } else {
+      users_conts.put(user, users_conts.get(user) + 1);
+    }
+
+    if (c.getContributionTypes().contains(ContributionType.CREATION)) {
+      type_counts.put(ContributionType.CREATION,
+          type_counts.get(ContributionType.CREATION) + 1);
+    }
+    if (c.getContributionTypes().contains(ContributionType.DELETION)) {
+      type_counts.put(ContributionType.DELETION,
+          type_counts.get(ContributionType.DELETION) + 1);
+    }
+    if (c.getContributionTypes().contains(ContributionType.GEOMETRY_CHANGE)) {
+      type_counts.put(ContributionType.GEOMETRY_CHANGE, type_counts.get(
+          ContributionType.GEOMETRY_CHANGE) + 1);
+    }
+    if (c.getContributionTypes().contains(ContributionType.TAG_CHANGE)) {
+      type_counts.put(ContributionType.TAG_CHANGE, type_counts.get(
+          ContributionType.TAG_CHANGE) + 1);
+    }
+
+    MappingMonth result = new MappingMonth(count, users_conts, type_counts);
+    return result;
   }
 
 }
