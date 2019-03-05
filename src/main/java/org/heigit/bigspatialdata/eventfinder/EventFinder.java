@@ -57,6 +57,7 @@ public class EventFinder {
     //OSHDBBoundingBox bb = new OSHDBBoundingBox(-180, -90, 180, 90); // Global
 
     Map<Integer, ArrayList<MappingEvent>> events = get_event(bb, oshdb, keytables);
+    oshdb.close();
     events.forEach((Integer geom, ArrayList<MappingEvent> ev) -> {
       if (ev.isEmpty()) {
         return;
