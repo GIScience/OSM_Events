@@ -4,12 +4,13 @@ package org.heigit.bigspatialdata.eventfinder;
 // import java.io.PrintWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.SortedMap;
@@ -18,7 +19,10 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.time.DateUtils;
 import org.apache.commons.math3.exception.ConvergenceException;
 import org.apache.commons.math3.fitting.WeightedObservedPoint;
+import org.heigit.bigspatialdata.oshdb.api.db.OSHDBDatabase;
 import org.heigit.bigspatialdata.oshdb.api.db.OSHDBH2;
+import org.heigit.bigspatialdata.oshdb.api.db.OSHDBIgnite;
+import org.heigit.bigspatialdata.oshdb.api.db.OSHDBJdbc;
 import org.heigit.bigspatialdata.oshdb.api.generic.OSHDBCombinedIndex;
 import org.heigit.bigspatialdata.oshdb.api.mapreducer.OSMContributionView;
 import org.heigit.bigspatialdata.oshdb.osm.OSMType;
@@ -40,10 +44,19 @@ public class EventFinder {
     // OSHDBBoundingBox bb = new OSHDBBoundingBox(85.2880, 85.3383, 27.6675, 27.7378); // Katmandu
     // OSHDBBoundingBox bb = new OSHDBBoundingBox(85.2377, 85.2880, 27.5947, 27.6675); //near katmandu
     OSHDBH2 oshdb = (new OSHDBH2("/data_ssd/heidelberg.oshdb")).multithreading(true).inMemory(true);
+    OSHDBJdbc keytables = oshdb;
+//    OSHDBDatabase oshdb = new OSHDBIgnite(EventFinder.class.getResource("/ohsome-ignite-dev.xml")
+//        .getFile());
+//    oshdb.prefix("global_v4");
+//    Connection conn = DriverManager.getConnection(
+//        "jdbc:postgresql://10.11.12.21:5432/keytables-global_v4", "ohsome", args[0]);
+//    OSHDBJdbc keytables = new OSHDBJdbc(conn);
     //OSHDBBoundingBox bb = new OSHDBBoundingBox(34.72, 34.85, 32.03, 32.14); // TLV
     // OSHDBBoundingBox bb = new OSHDBBoundingBox(34.2, 34.6, 31.2, 31.6); // Gaza
-    OSHDBBoundingBox bb = new OSHDBBoundingBox(-180, -90, 180, 90); // Global
-    Map<Integer, ArrayList<MappingEvent>> events = get_event(bb, oshdb);
+    OSHDBBoundingBox bb = new OSHDBBoundingBox(8.57733, 49.373558, 8.774741, 49.45832); //HD
+    //OSHDBBoundingBox bb = new OSHDBBoundingBox(-180, -90, 180, 90); // Global
+
+    Map<Integer, ArrayList<MappingEvent>> events = get_event(bb, oshdb, keytables);
     events.forEach((Integer geom, ArrayList<MappingEvent> ev) -> {
       if (ev.isEmpty()) {
         return;
@@ -74,7 +87,8 @@ public class EventFinder {
  * For each event, the procedure records information regarding its date, number of active users, number of actions, maximal number of actions by a single user, relative change in the database size, 
  * and number of contributions by type.
    */
-  public static Map<Integer, ArrayList<MappingEvent>> get_event(OSHDBBoundingBox bb, OSHDBH2 oshdb)
+  public static Map<Integer, ArrayList<MappingEvent>> get_event(OSHDBBoundingBox bb,
+      OSHDBDatabase oshdb, OSHDBJdbc keytables)
       throws Exception {
     // saves objects of type Mapping_Event which stores the month of the event, the number of active mappers, number of contributions, and maximal number of contributions by one user
     final Map<Integer, ArrayList<MappingEvent>> out = new HashMap<>();
@@ -82,6 +96,7 @@ public class EventFinder {
     // collect contributions by month
     SortedMap<OSHDBCombinedIndex<Integer, OSHDBTimestamp>, MappingMonth> result = OSMContributionView
         .on(oshdb)
+        .keytables(keytables)
         .areaOfInterest(bb)
         //Relations make this VERY slow!!! We could include multipolygons seperately. Also: Do we have duplicate edites
         .osmType(OSMType.NODE, OSMType.WAY)
