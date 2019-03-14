@@ -206,6 +206,8 @@ public class EventFinder {
       Iterator<Entry<OSHDBTimestamp, MappingMonth>> iterator1 = geomContributions.entrySet()
           .iterator();
       iterator1.next();
+      
+      i = 1;
       while (iterator1.hasNext()) {
         Entry<OSHDBTimestamp, MappingMonth> next = iterator1.next();
         // identify events
@@ -213,11 +215,15 @@ public class EventFinder {
         Double error = (lagged_errors.get(next.getKey()) - mean) / std; // normalized error
         if (error > 1.644854) { // if error is positively significant at 95% - create event
           MappingEvent e = new MappingEvent(next.getKey(), next.getValue(),
+              next.getValue().getUser_counts().size(),
               acc_result.get(next.getKey()) - acc_result.get(m_lag),
               ((float) (acc_result.get(next.getKey()) - (float) acc_result.get(m_lag))
-              / (float) acc_result.get(m_lag)));
+              / (float) acc_result.get(m_lag)),
+              Collections.max(next.getValue().getUser_counts().values()),
+              coeffs);
           list.add(e);
         }
+        i++;
       }
       out.put(geom, list); // add to list of events
     });
