@@ -2,6 +2,8 @@ package org.heigit.bigspatialdata.eventfinder;
 
 // import java.io.File;
 // import java.io.PrintWriter;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Connection;
@@ -16,6 +18,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.time.DateUtils;
 import org.apache.commons.math3.exception.ConvergenceException;
@@ -59,6 +63,23 @@ public class EventFinder {
 
     Map<Integer, ArrayList<MappingEvent>> events = get_event(bb, oshdb, keytables);
     oshdb.close();
+
+    //write output
+    File file = new File("target/MappingEvents.csv");
+
+//Create the file
+    if (file.createNewFile()) {
+      System.out.println("File is created!");
+    } else {
+      System.out.println("File already exists.");
+    }
+
+//Write Content
+    FileWriter writer = new FileWriter(file);
+    writer.write(
+        "ID;GeomNr.;EventNr.;Timestamp;Users;Contributions;MaxContributions;Change;TypeCounts;MaxCont;Coeffs\n");
+
+    int[] id = {0};
     events.forEach((Integer geom, ArrayList<MappingEvent> ev) -> {
       if (ev.isEmpty()) {
         return;
@@ -67,20 +88,41 @@ public class EventFinder {
       System.out.println("");
       System.out.println("Events for geom Nr. " + geom);
       System.out.println("");
+      int[] eventnr = {1};
       ev.forEach((MappingEvent e) -> {
-        //TODO: Write output
+        try {
+          writer.write(
+              id[0] + ";"
+              + geom + ";"
+              + eventnr[0] + ";"
+              + e.getTimestap().toDate() + ";"
+              + e.getUser_counts().size() + ";"
+              + e.get_contributions() + ";"
+              + Collections.max(e.getUser_counts().values()) + ";"
+              + e.getChange() + ";"
+              + e.get_type_counts().values() + ";"
+              + e.getMaxCont() + ";"
+              + Arrays.toString(e.getCoeffs())
+              + "\n"
+          );
+        } catch (IOException ex) {
+          Logger.getLogger(EventFinder.class.getName()).log(Level.SEVERE, null, ex);
+        }
         System.out.println(
-            e.getTimestap().toDate() + ","
-            + e.getUser_counts().size() + ","
-            + e.get_contributions() + ","
-            + Collections.max(e.getUser_counts().values()) + ","
-            + e.getChange() + ","
-            + e.get_type_counts().values() + ","
-            + e.getMaxCont() + ","
+            e.getTimestap().toDate() + ";"
+            + e.getUser_counts().size() + ";"
+            + e.get_contributions() + ";"
+            + Collections.max(e.getUser_counts().values()) + ";"
+            + e.getChange() + ";"
+            + e.get_type_counts().values() + ";"
+            + e.getMaxCont() + ";"
             + Arrays.toString(e.getCoeffs())
         );
+        eventnr[0] += 1;
+        id[0] += 1;
       });
     });
+    writer.close();
   }
 
   /*
