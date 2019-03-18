@@ -2,6 +2,7 @@ package org.heigit.bigspatialdata.eventfinder;
 
 // import java.io.File;
 // import java.io.PrintWriter;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Connection;
@@ -13,6 +14,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Properties;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import org.apache.commons.io.IOUtils;
@@ -40,10 +42,18 @@ public class EventFinder {
 
   // this should be replaced with an iteration over grid cells at the highest 
   public static void main(String[] args) throws Exception {
+    String rootPath = Thread.currentThread().getContextClassLoader().getResource("").getPath();
+    String propertiesPath = rootPath + "oshdb.properties";
+
+    Properties oshdbProperties = new Properties();
+    oshdbProperties.load(new FileInputStream(propertiesPath));
+
     // OSHDBH2 oshdb = (new OSHDBH2("C:\\Research Projects\\MapWars\\Case Study Results\\Katmandu\\nepal_20180201_z12_keytables.oshdb")).multithreading(true); // Nepal
     // OSHDBBoundingBox bb = new OSHDBBoundingBox(85.2880, 85.3383, 27.6675, 27.7378); // Katmandu
     // OSHDBBoundingBox bb = new OSHDBBoundingBox(85.2377, 85.2880, 27.5947, 27.6675); //near katmandu
-    OSHDBH2 oshdb = (new OSHDBH2("/data_ssd/heidelberg.oshdb")).multithreading(true).inMemory(true);
+    OSHDBH2 oshdb = (new OSHDBH2(oshdbProperties.getProperty("oshdb")))
+        .multithreading(true)
+        .inMemory(true);
     OSHDBJdbc keytables = oshdb;
 //    OSHDBDatabase oshdb = new OSHDBIgnite(EventFinder.class.getResource("/ohsome-ignite-dev.xml")
 //        .getFile());
