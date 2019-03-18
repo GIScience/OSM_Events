@@ -7,6 +7,7 @@ import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.HashMap;
@@ -68,10 +69,16 @@ public class EventFinder {
       System.out.println("");
       ev.forEach((MappingEvent e) -> {
         //TODO: Write output
-        System.out.println(e.getTimestap().toDate() + "," + e.getUser_counts().size() + "," + e
-            .get_contributions() + "," + Collections.max(e.getUser_counts().values()) + "," + e
-            .getChange() + "," + e
-                .get_type_counts().values());
+        System.out.println(
+            e.getTimestap().toDate() + ","
+            + e.getUser_counts().size() + ","
+            + e.get_contributions() + ","
+            + Collections.max(e.getUser_counts().values()) + ","
+            + e.getChange() + ","
+            + e.get_type_counts().values() + ","
+            + e.getMaxCont() + ","
+            + Arrays.toString(e.getCoeffs())
+        );
       });
     });
   }
@@ -206,7 +213,7 @@ public class EventFinder {
       Iterator<Entry<OSHDBTimestamp, MappingMonth>> iterator1 = geomContributions.entrySet()
           .iterator();
       iterator1.next();
-      
+
       i = 1;
       while (iterator1.hasNext()) {
         Entry<OSHDBTimestamp, MappingMonth> next = iterator1.next();
