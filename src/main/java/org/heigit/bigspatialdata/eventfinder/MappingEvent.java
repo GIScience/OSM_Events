@@ -5,30 +5,49 @@ import org.heigit.bigspatialdata.oshdb.util.OSHDBTimestamp;
 import org.heigit.bigspatialdata.oshdb.util.celliterator.ContributionType;
 
 public class MappingEvent extends MappingMonth {
-
+  private final int users;
+  
   private final float change;
 
-  private final int deltakontrib;
+  private final float deltakontrib;
 
   private final OSHDBTimestamp timestap;
+  
+  private final double[] coeffs;
+  
+  private final Integer maxCont;
 
-  MappingEvent(OSHDBTimestamp key, MappingMonth value, int i, float f) {
+  MappingEvent(OSHDBTimestamp key, MappingMonth value, int users, float contributions, float delta, Integer maxCont, double[] coeffs) {
     super(value.get_contributions(), value.getUser_counts(), value.get_type_counts());
     this.timestap = key;
-    this.deltakontrib = i;
-    this.change = f;
+    this.users = users;
+    this.deltakontrib = delta;
+    this.change = contributions;
+    this.coeffs = coeffs;
+    this.maxCont = maxCont;
   }
 
   public float getChange() {
     return change;
   }
 
-  public int getDeltakontrib() {
+  public float getDeltakontrib() {
     return deltakontrib;
   }
 
   public OSHDBTimestamp getTimestap() {
     return timestap;
   }
-
+  
+  public int getUsers(){
+	  return this.users;
+  }
+  
+  public int getMaxCont() {
+	  return this.maxCont;
+  }
+  
+  public double[] getCoeffs() {
+	  return this.coeffs;
+  }
 }
