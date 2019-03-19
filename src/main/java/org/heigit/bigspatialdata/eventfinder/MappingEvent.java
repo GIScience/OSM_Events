@@ -17,10 +17,10 @@ public class MappingEvent extends MappingMonth {
   
   private final Integer maxCont;
   
-  private final Map<ContributionType, Intger> type_counts;
+  private final HashMap<ContributionType, Intger> type_counts;
 
   MappingEvent(OSHDBTimestamp key, MappingMonth value, int users, float contributions, float delta, Integer maxCont, double[] coeffs,
-  Map<ContributionType, Integer> type_counts) {
+    HashMap<ContributionType, Integer> type_counts) {
     super(value.get_contributions(), value.getUser_counts(), value.get_type_counts());
     this.timestap = key;
     this.users = users;
@@ -55,7 +55,7 @@ public class MappingEvent extends MappingMonth {
 	  return this.coeffs;
   }
   
-  public Map<ContributionType, Integer> getType_counts() {
+  public HashMap<ContributionType, Integer> getType_counts() {
       return this.type_counts;
   }
 }
