@@ -282,7 +282,8 @@ public class EventFinder {
               ((float) (acc_result.get(next.getKey()) - (float) acc_result.get(m_lag))
               / (float) acc_result.get(m_lag)),
               Collections.max(next.getValue().getUser_counts().values()),
-              coeffs);
+              coeffs,
+              next.getValue().get_type_counts());
           list.add(e);
         }
         i++;
