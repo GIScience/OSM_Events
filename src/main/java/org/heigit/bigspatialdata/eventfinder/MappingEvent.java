@@ -17,7 +17,7 @@ public class MappingEvent extends MappingMonth {
   
   private final Integer maxCont;
   
-  private final HashMap<ContributionType, Intger> type_counts;
+  private final HashMap<ContributionType, Integer> type_counts;
 
   MappingEvent(OSHDBTimestamp key, MappingMonth value, int users, float contributions, float delta, Integer maxCont, double[] coeffs,
     HashMap<ContributionType, Integer> type_counts) {
