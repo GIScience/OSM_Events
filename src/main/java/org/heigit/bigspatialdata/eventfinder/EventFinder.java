@@ -85,7 +85,7 @@ public class EventFinder {
 //Write Content
     FileWriter writer = new FileWriter(file);
     writer.write(
-        "ID;GeomNr.;EventNr.;Timestamp;Users;Contributions;MaxContributions;Change;TypeCounts;MaxCont;Coeffs\n");
+        "ID;GeomNr.;EventNr.;Timestamp;Users;Contributions;MaxContributions;Change;TypeCounts;MaxCont;Coeffs;Creations;Deletions;Tag_changes;Geometry_changes\n");
 
     int[] id = {0};
     events.forEach((Integer geom, ArrayList<MappingEvent> ev) -> {
@@ -111,6 +111,10 @@ public class EventFinder {
               + e.get_type_counts().values() + ";"
               + e.getMaxCont() + ";"
               + Arrays.toString(e.getCoeffs())
+              + e.getType_counts.get(ContributionType.CREATION) + ";"
+              + e.getType_counts.get(ContributionType.DELETION) + ";"
+              + e.getType_counts.get(ContributionType.TAG_CHANGE) + ";"
+              + e.getType_counts.get(ContributionType.GEOMETRY_CHANGE) + ";"
               + "\n"
           );
         } catch (IOException ex) {
