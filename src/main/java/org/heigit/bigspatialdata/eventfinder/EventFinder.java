@@ -1,12 +1,10 @@
 package org.heigit.bigspatialdata.eventfinder;
 
-// import java.io.File;
-// import java.io.PrintWriter;
+import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
-import java.sql.Connection;
-import java.sql.DriverManager;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -26,13 +24,13 @@ import org.apache.commons.math3.exception.ConvergenceException;
 import org.apache.commons.math3.fitting.WeightedObservedPoint;
 import org.heigit.bigspatialdata.oshdb.api.db.OSHDBDatabase;
 import org.heigit.bigspatialdata.oshdb.api.db.OSHDBH2;
-import org.heigit.bigspatialdata.oshdb.api.db.OSHDBIgnite;
 import org.heigit.bigspatialdata.oshdb.api.db.OSHDBJdbc;
 import org.heigit.bigspatialdata.oshdb.api.generic.OSHDBCombinedIndex;
 import org.heigit.bigspatialdata.oshdb.api.mapreducer.OSMContributionView;
 import org.heigit.bigspatialdata.oshdb.osm.OSMType;
 import org.heigit.bigspatialdata.oshdb.util.OSHDBBoundingBox;
 import org.heigit.bigspatialdata.oshdb.util.OSHDBTimestamp;
+import org.heigit.bigspatialdata.oshdb.util.celliterator.ContributionType;
 import org.heigit.bigspatialdata.oshdb.util.time.OSHDBTimestamps;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Polygon;
@@ -85,7 +83,7 @@ public class EventFinder {
 //Write Content
     FileWriter writer = new FileWriter(file);
     writer.write(
-        "ID;GeomNr.;EventNr.;Timestamp;Users;Contributions;MaxContributions;Change;TypeCounts;MaxCont;Coeffs\n");
+        "ID;GeomNr.;EventNr.;Timestamp;Users;Contributions;Change;MaxContributions;Coeffs;TypeCounts\n");
 
     int[] id = {0};
     events.forEach((Integer geom, ArrayList<MappingEvent> ev) -> {
@@ -106,11 +104,10 @@ public class EventFinder {
               + e.getTimestap().toDate() + ";"
               + e.getUser_counts().size() + ";"
               + e.get_contributions() + ";"
-              + Collections.max(e.getUser_counts().values()) + ";"
-              + e.getChange() + ";"
-              + e.get_type_counts().values() + ";"
+              + e.getDeltakontrib() + ";"
               + e.getMaxCont() + ";"
               + Arrays.toString(e.getCoeffs())
+              + e.get_type_counts().toString() + ";"
               + "\n"
           );
         } catch (IOException ex) {
@@ -277,7 +274,8 @@ public class EventFinder {
               ((float) (acc_result.get(next.getKey()) - (float) acc_result.get(m_lag))
               / (float) acc_result.get(m_lag)),
               Collections.max(next.getValue().getUser_counts().values()),
-              coeffs);
+              coeffs,
+              next.getValue().get_type_counts());
           list.add(e);
         }
         i++;
