@@ -106,7 +106,7 @@ public class EventFinder {
               + e.get_contributions() + ";"
               + e.getDeltakontrib() + ";"
               + e.getMaxCont() + ";"
-              + Arrays.toString(e.getCoeffs())
+              + Arrays.toString(e.getCoeffs()) + ";"
               + e.get_type_counts().toString() + ";"
               + "\n"
           );
