@@ -19,13 +19,6 @@
       <name>Central Repository for OSHDB dependency related artefacts</name>
       <url>http://repo.heigit.org/artifactory/main</url>
     </repository>
-
-    <repository>
-      <id>HeiGIT snapshots</id>
-      <name>Heigit/GIScience maven repository (snapshots)</name>
-      <url>http://repo.heigit.org/artifactory/libs-snapshot-local</url>
-      <snapshots />
-    </repository>
   </repositories>
   
   <dependencies>
