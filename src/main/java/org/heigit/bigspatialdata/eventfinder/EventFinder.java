@@ -313,7 +313,6 @@ public class EventFinder {
     for (Feature f : featureCollection.getFeatures()) {
       geometries.put((Integer) f.getProperties().get("id"),
           gf.createPolygon(gjr.read(f.getGeometry()).getCoordinates()));
-      featureId++;
     }
     return geometries;
   }
