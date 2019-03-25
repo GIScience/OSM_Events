@@ -42,6 +42,10 @@ public class MappingMonth {
     this.types_count = types_count;
   }
   
+  public HashMap<Long, int[]> get_entity_edits() {
+	  return this.entity_edits;
+  }
+  
   public void set_entity_edits(HashMap<Long, int[]> entity_edits) {
 	  this.entity_edits = entity_edits;
   }
