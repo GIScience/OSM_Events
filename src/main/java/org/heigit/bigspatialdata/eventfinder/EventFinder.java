@@ -7,6 +7,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -18,7 +20,6 @@ import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.SortedMap;
 import java.util.TreeMap;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.apache.commons.io.IOUtils;
@@ -65,7 +66,7 @@ public class EventFinder {
       oshdb = (new OSHDBH2(oshdbProperties.getProperty("oshdb")))
           .multithreading(true)
           .inMemory(true);
-      keytables = (OSHDBH2) oshdb;
+      keytables = (OSHDBJdbc) oshdb;
     } else {
       oshdb = new OSHDBIgnite(EventFinder.class.getResource("/ohsome-ignite-dev.xml")
           .getFile());
@@ -143,7 +144,7 @@ public class EventFinder {
       throws Exception {
 
     LOG.info("Start processing result");
-StopWatch createStarted = StopWatch.createStarted();
+    StopWatch createStarted = StopWatch.createStarted();
     // saves objects of type Mapping_Event which stores the month of the event, the number of active mappers, number of contributions, and maximal number of contributions by one user
     final Map<Integer, ArrayList<MappingEvent>> out = new HashMap<>();
 
@@ -275,7 +276,7 @@ StopWatch createStarted = StopWatch.createStarted();
       out.put(geom, list); // add to list of events
     });
 
-        createStarted.stop();
+    createStarted.stop();
     double toMinutes = (createStarted.getTime() / 1000.0) / 60.0;
 
     LOG.info("Pricessing Finished, took " + toMinutes + " minutes");
@@ -321,6 +322,8 @@ StopWatch createStarted = StopWatch.createStarted();
         "ID;GeomNr.;EventNr.;Timestamp;Users;Contributions;Change;MaxContributions;EditedEntitities;AverageGeomChanges;AverageTagChanges;Pvalue;Coeffs;TypeCounts\n");
 
     int[] id = {0};
+    String pattern = "yyyy-MM";
+    DateFormat df = new SimpleDateFormat(pattern);
     events.forEach((Integer geom, ArrayList<MappingEvent> ev) -> {
       if (ev.isEmpty()) {
         return;
@@ -336,7 +339,7 @@ StopWatch createStarted = StopWatch.createStarted();
               id[0] + ";"
               + geom + ";"
               + eventnr[0] + ";"
-              + e.getTimestap().toDate() + ";"
+              + df.format(e.getTimestap().toDate()) + ";"
               + e.getUser_counts().size() + ";"
               + e.get_contributions() + ";"
               + e.getDeltakontrib() + ";"
@@ -353,7 +356,7 @@ StopWatch createStarted = StopWatch.createStarted();
           Logger.getLogger(EventFinder.class.getName()).log(Level.SEVERE, null, ex);
         }
         System.out.println(
-            e.getTimestap().toDate() + ";"
+            df.format(e.getTimestap().toDate()) + ";"
             + e.getUser_counts().size() + ";"
             + e.get_contributions() + ";"
             + Collections.max(e.getUser_counts().values()) + ";"
