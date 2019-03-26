@@ -120,7 +120,7 @@ public class EventFinder {
         .reduce(new NewMapMonth(), new MonthCombiner());
 
     createStarted.stop();
-    double toMinutes = ((createStarted.getTime() / 1000) / 60);
+    double toMinutes = (createStarted.getTime() / 1000.0) / 60.0;
 
     LOG.info("Query Finished, took " + toMinutes + " minutes");
     return result;
@@ -143,7 +143,7 @@ public class EventFinder {
       throws Exception {
 
     LOG.info("Start processing result");
-
+StopWatch createStarted = StopWatch.createStarted();
     // saves objects of type Mapping_Event which stores the month of the event, the number of active mappers, number of contributions, and maximal number of contributions by one user
     final Map<Integer, ArrayList<MappingEvent>> out = new HashMap<>();
 
@@ -275,7 +275,10 @@ public class EventFinder {
       out.put(geom, list); // add to list of events
     });
 
-    LOG.info("Finished Processing Result");
+        createStarted.stop();
+    double toMinutes = (createStarted.getTime() / 1000.0) / 60.0;
+
+    LOG.info("Pricessing Finished, took " + toMinutes + " minutes");
     return out;
   }
 
