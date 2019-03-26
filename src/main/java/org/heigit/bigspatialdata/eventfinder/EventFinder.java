@@ -18,10 +18,12 @@ import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.time.DateUtils;
+import org.apache.commons.lang3.time.StopWatch;
 import org.apache.commons.math3.exception.ConvergenceException;
 import org.apache.commons.math3.fitting.WeightedObservedPoint;
 import org.heigit.bigspatialdata.oshdb.api.db.OSHDBDatabase;
@@ -36,6 +38,7 @@ import org.heigit.bigspatialdata.oshdb.util.OSHDBTimestamp;
 import org.heigit.bigspatialdata.oshdb.util.time.OSHDBTimestamps;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Polygon;
+import org.slf4j.LoggerFactory;
 import org.wololo.geojson.Feature;
 import org.wololo.geojson.FeatureCollection;
 import org.wololo.geojson.GeoJSONFactory;
@@ -43,8 +46,13 @@ import org.wololo.jts2geojson.GeoJSONReader;
 
 public class EventFinder {
 
+  private static final org.slf4j.Logger LOG = LoggerFactory.getLogger(EventFinder.class);
+
   // this should be replaced with an iteration over grid cells at the highest 
   public static void main(String[] args) throws Exception {
+
+    LOG.info("Start preparation");
+
     String rootPath = Thread.currentThread().getContextClassLoader().getResource("").getPath();
     String propertiesPath = rootPath + "oshdb.properties";
 
@@ -75,91 +83,25 @@ public class EventFinder {
         Double.valueOf(split[2]),
         Double.valueOf(split[3]));
 
-    Map<Integer, ArrayList<MappingEvent>> events = get_event(bb, oshdb, keytables);
+    SortedMap<OSHDBCombinedIndex<Integer, OSHDBTimestamp>, MappingMonth> queryDatabase = EventFinder
+        .queryDatabase(bb, oshdb, keytables);
     oshdb.close();
 
-    //write output
-    File file = new File("target/MappingEvents.csv");
+    Map<Integer, ArrayList<MappingEvent>> events = EventFinder.extractEvents(queryDatabase);
 
-//Create the file
-    if (file.createNewFile()) {
-      System.out.println("File is created!");
-    } else {
-      System.out.println("File already exists.");
-    }
+    EventFinder.writeOutput(events);
 
-//Write Content
-    FileWriter writer = new FileWriter(file);
-    writer.write(
-        "ID;GeomNr.;EventNr.;Timestamp;Users;Contributions;Change;MaxContributions;EditedEntitities;AverageGeomChanges;AverageTagChanges;Pvalue;Coeffs;TypeCounts\n");
-
-    int[] id = {0};
-    events.forEach((Integer geom, ArrayList<MappingEvent> ev) -> {
-      if (ev.isEmpty()) {
-        return;
-      }
-      System.out.println("");
-      System.out.println("");
-      System.out.println("Events for geom Nr. " + geom);
-      System.out.println("");
-      int[] eventnr = {1};
-      ev.forEach((MappingEvent e) -> {
-        try {
-          writer.write(
-              id[0] + ";"
-              + geom + ";"
-              + eventnr[0] + ";"
-              + e.getTimestap().toDate() + ";"
-              + e.getUser_counts().size() + ";"
-              + e.get_contributions() + ";"
-              + e.getDeltakontrib() + ";"
-              + e.getMaxCont() + ";"
-              + e.get_entity_edits().size() + ";"
-              + e.get_geom_change_average() + ";"
-              + e.get_tag_change_average() + ";"
-              + e.get_pvalue() + ";"
-              + Arrays.toString(e.getCoeffs()) + ";"
-              + e.get_type_counts().toString() + ";"
-              + "\n"
-          );
-        } catch (IOException ex) {
-          Logger.getLogger(EventFinder.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        System.out.println(
-            e.getTimestap().toDate() + ";"
-            + e.getUser_counts().size() + ";"
-            + e.get_contributions() + ";"
-            + Collections.max(e.getUser_counts().values()) + ";"
-            + e.getChange() + ";"
-            + e.get_type_counts().values() + ";"
-            + e.getMaxCont() + ";"
-            + Arrays.toString(e.getCoeffs())
-        );
-        eventnr[0] += 1;
-        id[0] += 1;
-      });
-    });
-    writer.close();
   }
 
-  /*
- * This procedure identifies large scale events within osm data using the oshdb api
- * I define here events as large contributions in relation to the current development of the data base (i.e. relatively).
- * The procedures assumes that the accumulative number contribution actions (meaning the individual actions that make a contribution, e.g. deleting or adding a coordinate or a tag) follows 
- * an s-shaped (logistic) curve over time.
- * Accordingly, the procedure counts the accumulative number of actions for each month and fits a logistic curve of the type: a/(1+b*exp(-k*(t-u))), where t is a temporal index, with the data.
- * Differences between observed values and estimations ('errors') are calculated. To eliminate temporal dependency, the procedure uses lagged errors (lagged error at time t=
- * error at time t - error at time t-1).
- * The procedure normalizes the lagged errors and identifies significantly positive values at 95% confidence level as events.
- * For each event, the procedure records information regarding its date, number of active users, number of actions, maximal number of actions by a single user, relative change in the database size, 
- * and number of contributions by type.
-   */
-  public static Map<Integer, ArrayList<MappingEvent>> get_event(OSHDBBoundingBox bb,
-      OSHDBDatabase oshdb, OSHDBJdbc keytables)
-      throws Exception {
-    // saves objects of type Mapping_Event which stores the month of the event, the number of active mappers, number of contributions, and maximal number of contributions by one user
-    final Map<Integer, ArrayList<MappingEvent>> out = new HashMap<>();
+  public static SortedMap<OSHDBCombinedIndex<Integer, OSHDBTimestamp>, MappingMonth> queryDatabase(
+      OSHDBBoundingBox bb,
+      OSHDBDatabase oshdb,
+      OSHDBJdbc keytables)
+      throws IOException, Exception {
 
+    LOG.info("Run Query");
+
+    StopWatch createStarted = StopWatch.createStarted();
     // collect contributions by month
     SortedMap<OSHDBCombinedIndex<Integer, OSHDBTimestamp>, MappingMonth> result = OSMContributionView
         .on(oshdb)
@@ -177,9 +119,37 @@ public class EventFinder {
         .map(new MapFunk())
         .reduce(new NewMapMonth(), new MonthCombiner());
 
+    createStarted.stop();
+    double toMinutes = ((createStarted.getTime() / 1000) / 60);
+
+    LOG.info("Query Finished, took " + toMinutes + " minutes");
+    return result;
+  }
+
+  /*
+ * This procedure identifies large scale events within osm data using the oshdb api
+ * I define here events as large contributions in relation to the current development of the data base (i.e. relatively).
+ * The procedures assumes that the accumulative number contribution actions (meaning the individual actions that make a contribution, e.g. deleting or adding a coordinate or a tag) follows 
+ * an s-shaped (logistic) curve over time.
+ * Accordingly, the procedure counts the accumulative number of actions for each month and fits a logistic curve of the type: a/(1+b*exp(-k*(t-u))), where t is a temporal index, with the data.
+ * Differences between observed values and estimations ('errors') are calculated. To eliminate temporal dependency, the procedure uses lagged errors (lagged error at time t=
+ * error at time t - error at time t-1).
+ * The procedure normalizes the lagged errors and identifies significantly positive values at 95% confidence level as events.
+ * For each event, the procedure records information regarding its date, number of active users, number of actions, maximal number of actions by a single user, relative change in the database size, 
+ * and number of contributions by type.
+   */
+  public static Map<Integer, ArrayList<MappingEvent>> extractEvents(
+      SortedMap<OSHDBCombinedIndex<Integer, OSHDBTimestamp>, MappingMonth> months)
+      throws Exception {
+
+    LOG.info("Start processing result");
+
+    // saves objects of type Mapping_Event which stores the month of the event, the number of active mappers, number of contributions, and maximal number of contributions by one user
+    final Map<Integer, ArrayList<MappingEvent>> out = new HashMap<>();
+
     //devide result into resulty per geometry
-    SortedMap<Integer, SortedMap<OSHDBTimestamp, MappingMonth>> nest = OSHDBCombinedIndex.nest(
-        result);
+    SortedMap<Integer, SortedMap<OSHDBTimestamp, MappingMonth>> nest
+        = OSHDBCombinedIndex.nest(months);
 
     //TODO many loops following. Can we simplify?
     //iterate
@@ -305,10 +275,12 @@ public class EventFinder {
       out.put(geom, list); // add to list of events
     });
 
+    LOG.info("Finished Processing Result");
     return out;
   }
 
   private static Map<Integer, Polygon> getPolygons() throws IOException {
+    LOG.info("Read Polygons");
     //read geometries
     ClassLoader classloader = Thread.currentThread().getContextClassLoader();
     InputStream is = classloader.getResourceAsStream("grid_20000_id.geojson");
@@ -322,7 +294,79 @@ public class EventFinder {
       geometries.put((Integer) f.getProperties().get("id"),
           gf.createPolygon(gjr.read(f.getGeometry()).getCoordinates()));
     }
+
+    LOG.info("Finished Reading Polygons");
     return geometries;
+  }
+
+  public static void writeOutput(Map<Integer, ArrayList<MappingEvent>> events) throws IOException {
+    LOG.info("Save output");
+
+    //write output
+    File file = new File("target/MappingEvents.csv");
+
+//Create the file
+    if (file.createNewFile()) {
+      System.out.println("File is created!");
+    } else {
+      System.out.println("File already exists.");
+    }
+
+//Write Content
+    FileWriter writer = new FileWriter(file);
+    writer.write(
+        "ID;GeomNr.;EventNr.;Timestamp;Users;Contributions;Change;MaxContributions;EditedEntitities;AverageGeomChanges;AverageTagChanges;Pvalue;Coeffs;TypeCounts\n");
+
+    int[] id = {0};
+    events.forEach((Integer geom, ArrayList<MappingEvent> ev) -> {
+      if (ev.isEmpty()) {
+        return;
+      }
+      System.out.println("");
+      System.out.println("");
+      System.out.println("Events for geom Nr. " + geom);
+      System.out.println("");
+      int[] eventnr = {1};
+      ev.forEach((MappingEvent e) -> {
+        try {
+          writer.write(
+              id[0] + ";"
+              + geom + ";"
+              + eventnr[0] + ";"
+              + e.getTimestap().toDate() + ";"
+              + e.getUser_counts().size() + ";"
+              + e.get_contributions() + ";"
+              + e.getDeltakontrib() + ";"
+              + e.getMaxCont() + ";"
+              + e.get_entity_edits().size() + ";"
+              + e.get_geom_change_average() + ";"
+              + e.get_tag_change_average() + ";"
+              + e.get_pvalue() + ";"
+              + Arrays.toString(e.getCoeffs()) + ";"
+              + e.get_type_counts().toString() + ";"
+              + "\n"
+          );
+        } catch (IOException ex) {
+          Logger.getLogger(EventFinder.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        System.out.println(
+            e.getTimestap().toDate() + ";"
+            + e.getUser_counts().size() + ";"
+            + e.get_contributions() + ";"
+            + Collections.max(e.getUser_counts().values()) + ";"
+            + e.getChange() + ";"
+            + e.get_type_counts().values() + ";"
+            + e.getMaxCont() + ";"
+            + Arrays.toString(e.getCoeffs())
+        );
+        eventnr[0] += 1;
+        id[0] += 1;
+      });
+    });
+    writer.close();
+
+    LOG.info("Finished");
+
   }
 
 }
