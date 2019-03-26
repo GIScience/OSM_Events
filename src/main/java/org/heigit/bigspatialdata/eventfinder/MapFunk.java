@@ -16,15 +16,17 @@ public class MapFunk implements SerializableFunction<OSMContribution, MappingMon
 
   @Override
   public MappingMonth apply(OSMContribution c) {
+    int geom_count = 0;
+    int tag_count = 0;
     int count = 0;
     if (c.getContributionTypes().contains(ContributionType.DELETION)) {
       count = count + 1; // a deletion is considered as one action
     } else if (c.getContributionTypes().contains(ContributionType.CREATION)) {
-      count += c.getGeometryAfter().getCoordinates().length;
+      geom_count += c.getGeometryAfter().getCoordinates().length;
       Iterator<OSHDBTag> tags = c.getEntityAfter().getTags().iterator();
       while (tags.hasNext()) {
         tags.next();
-        count++;
+        tag_count++;
       }// each addition of a coordinate and of a tag is considered an action
     } else {
       // for modifications - each addition and deletion of coordinate or tag is considered an action
@@ -46,7 +48,7 @@ public class MapFunk implements SerializableFunction<OSMContribution, MappingMon
           }
         }
 
-        count = count + coord_additions + coord_dels;
+        geom_count = geom_count + coord_additions + coord_dels;
       }
 
       List<OSHDBTag> t_aft = new ArrayList<>();
@@ -72,20 +74,37 @@ public class MapFunk implements SerializableFunction<OSMContribution, MappingMon
           }
         }
 
-        count = count + tags_dels + tags_adds;
+        tag_count = tag_count + tags_dels + tags_adds;
       }
     }
+    count = count + geom_count + tag_count;
     HashMap<Integer, Integer> users_conts = new HashMap<Integer, Integer>();
     HashMap<ContributionType, Integer> type_counts = new HashMap<ContributionType, Integer>();
+    HashMap<Long, int[]> entity_edits = new HashMap<Long, int[]>();
+    int[] edits_by_type = {geom_count, tag_count};
+    long entity_id = 0;
+    if (!c.getContributionTypes().contains(ContributionType.DELETION)) {
+        entity_id = c.getEntityAfter().getId();
+    } else {
+        entity_id = c.getEntityBefore().getId();
+    }
+    if (!entity_edits.containsKey(entity_id)) {
+        entity_edits.put(entity_id, edits_by_type);
+    } else {
+        int[] current_count = entity_edits.get(entity_id);
+        current_count[0] = current_count[0] + geom_count;
+        current_count[1] = current_count[1] + tag_count;
+        entity_edits.put(entity_id, current_count);
+    }
     type_counts.put(ContributionType.CREATION, 0);
     type_counts.put(ContributionType.DELETION, 0);
     type_counts.put(ContributionType.GEOMETRY_CHANGE, 0);
     type_counts.put(ContributionType.TAG_CHANGE, 0);
     Integer user = c.getContributorUserId();
     if (!users_conts.containsKey(user)) {
-      users_conts.put(user, 1);
+      users_conts.put(user, count);
     } else {
-      users_conts.put(user, users_conts.get(user) + 1);
+      users_conts.put(user, users_conts.get(user) + count);
     }
 
     if (c.getContributionTypes().contains(ContributionType.CREATION)) {
@@ -105,7 +124,7 @@ public class MapFunk implements SerializableFunction<OSMContribution, MappingMon
           ContributionType.TAG_CHANGE) + 1);
     }
 
-    MappingMonth result = new MappingMonth(count, users_conts, type_counts);
+    MappingMonth result = new MappingMonth(count, users_conts, type_counts, entity_edits);
     return result;
   }
 

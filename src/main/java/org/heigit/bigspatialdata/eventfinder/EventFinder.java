@@ -83,7 +83,7 @@ public class EventFinder {
 //Write Content
     FileWriter writer = new FileWriter(file);
     writer.write(
-        "ID;GeomNr.;EventNr.;Timestamp;Users;Contributions;Change;MaxContributions;Coeffs;TypeCounts\n");
+        "ID;GeomNr.;EventNr.;Timestamp;Users;Contributions;Change;MaxContributions;EditedEntitities;AverageGeomChanges;AverageTagChanges;Pvalue;Coeffs;TypeCounts\n");
 
     int[] id = {0};
     events.forEach((Integer geom, ArrayList<MappingEvent> ev) -> {
@@ -106,6 +106,10 @@ public class EventFinder {
               + e.get_contributions() + ";"
               + e.getDeltakontrib() + ";"
               + e.getMaxCont() + ";"
+              + e.get_entity_edits().size() + ";"
+              + e.get_geom_change_average() + ";"
+              + e.get_tag_change_average() + ";"
+              + e.get_pvalue() + ";"
               + Arrays.toString(e.getCoeffs()) + ";"
               + e.get_type_counts().toString() + ";"
               + "\n"
@@ -268,6 +272,13 @@ public class EventFinder {
         OSHDBTimestamp m_lag = (OSHDBTimestamp) geomContributions.keySet().toArray()[i - 1];
         Double error = (lagged_errors.get(next.getKey()) - mean) / std; // normalized error
         if (error > 1.644854) { // if error is positively significant at 95% - create event
+          HashMap<Long, int[]> entity_edits = next.getValue().get_entity_edits();
+          int sum_tags = 0;
+          int sum_geom = 0;
+          for (long k: entity_edits.keySet()) {
+        	  sum_geom = sum_geom + entity_edits.get(k)[0];
+        	  sum_tags = sum_tags + entity_edits.get(k)[1];
+          }
           MappingEvent e = new MappingEvent(next.getKey(), next.getValue(),
               next.getValue().getUser_counts().size(),
               acc_result.get(next.getKey()) - acc_result.get(m_lag),
@@ -275,7 +286,10 @@ public class EventFinder {
               / (float) acc_result.get(m_lag)),
               Collections.max(next.getValue().getUser_counts().values()),
               coeffs,
-              next.getValue().get_type_counts());
+              next.getValue().get_type_counts(),
+              (float) sum_geom / entity_edits.size(),
+              (float) sum_tags / entity_edits.size(),
+              error);
           list.add(e);
         }
         i++;
