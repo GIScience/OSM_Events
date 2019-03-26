@@ -5,6 +5,8 @@ import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -24,13 +26,13 @@ import org.apache.commons.math3.exception.ConvergenceException;
 import org.apache.commons.math3.fitting.WeightedObservedPoint;
 import org.heigit.bigspatialdata.oshdb.api.db.OSHDBDatabase;
 import org.heigit.bigspatialdata.oshdb.api.db.OSHDBH2;
+import org.heigit.bigspatialdata.oshdb.api.db.OSHDBIgnite;
 import org.heigit.bigspatialdata.oshdb.api.db.OSHDBJdbc;
 import org.heigit.bigspatialdata.oshdb.api.generic.OSHDBCombinedIndex;
 import org.heigit.bigspatialdata.oshdb.api.mapreducer.OSMContributionView;
 import org.heigit.bigspatialdata.oshdb.osm.OSMType;
 import org.heigit.bigspatialdata.oshdb.util.OSHDBBoundingBox;
 import org.heigit.bigspatialdata.oshdb.util.OSHDBTimestamp;
-import org.heigit.bigspatialdata.oshdb.util.celliterator.ContributionType;
 import org.heigit.bigspatialdata.oshdb.util.time.OSHDBTimestamps;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Polygon;
@@ -49,23 +51,29 @@ public class EventFinder {
     Properties oshdbProperties = new Properties();
     oshdbProperties.load(new FileInputStream(propertiesPath));
 
-    // OSHDBH2 oshdb = (new OSHDBH2("C:\\Research Projects\\MapWars\\Case Study Results\\Katmandu\\nepal_20180201_z12_keytables.oshdb")).multithreading(true); // Nepal
-    // OSHDBBoundingBox bb = new OSHDBBoundingBox(85.2880, 85.3383, 27.6675, 27.7378); // Katmandu
-    // OSHDBBoundingBox bb = new OSHDBBoundingBox(85.2377, 85.2880, 27.5947, 27.6675); //near katmandu
-    OSHDBH2 oshdb = (new OSHDBH2(oshdbProperties.getProperty("oshdb")))
-        .multithreading(true)
-        .inMemory(true);
-    OSHDBJdbc keytables = oshdb;
-//    OSHDBDatabase oshdb = new OSHDBIgnite(EventFinder.class.getResource("/ohsome-ignite-dev.xml")
-//        .getFile());
-//    oshdb.prefix("global_v4");
-//    Connection conn = DriverManager.getConnection(
-//        "jdbc:postgresql://10.11.12.21:5432/keytables-global_v4", "ohsome", args[0]);
-//    OSHDBJdbc keytables = new OSHDBJdbc(conn);
-    //OSHDBBoundingBox bb = new OSHDBBoundingBox(34.72, 34.85, 32.03, 32.14); // TLV
-    // OSHDBBoundingBox bb = new OSHDBBoundingBox(34.2, 34.6, 31.2, 31.6); // Gaza
-    OSHDBBoundingBox bb = new OSHDBBoundingBox(8.57733, 49.373558, 8.774741, 49.45832); //HD
-    //OSHDBBoundingBox bb = new OSHDBBoundingBox(-180, -90, 180, 90); // Global
+    OSHDBDatabase oshdb;
+    OSHDBJdbc keytables;
+    if (oshdbProperties.getProperty("type").contains("H2")) {
+      oshdb = (new OSHDBH2(oshdbProperties.getProperty("oshdb")))
+          .multithreading(true)
+          .inMemory(true);
+      keytables = (OSHDBH2) oshdb;
+    } else {
+      oshdb = new OSHDBIgnite(EventFinder.class.getResource("/ohsome-ignite-dev.xml")
+          .getFile());
+      oshdb.prefix("global_v4");
+      Connection conn = DriverManager.getConnection(
+          "jdbc:postgresql://10.11.12.21:5432/keytables-global_v4", "ohsome", args[0]);
+      keytables = new OSHDBJdbc(conn);
+    }
+
+    String[] split = oshdbProperties.getProperty("bbox").split(",");
+
+    OSHDBBoundingBox bb = new OSHDBBoundingBox(
+        Double.valueOf(split[0]),
+        Double.valueOf(split[1]),
+        Double.valueOf(split[2]),
+        Double.valueOf(split[3]));
 
     Map<Integer, ArrayList<MappingEvent>> events = get_event(bb, oshdb, keytables);
     oshdb.close();
@@ -275,9 +283,9 @@ public class EventFinder {
           HashMap<Long, int[]> entity_edits = next.getValue().get_entity_edits();
           int sum_tags = 0;
           int sum_geom = 0;
-          for (long k: entity_edits.keySet()) {
-        	  sum_geom = sum_geom + entity_edits.get(k)[0];
-        	  sum_tags = sum_tags + entity_edits.get(k)[1];
+          for (long k : entity_edits.keySet()) {
+            sum_geom = sum_geom + entity_edits.get(k)[0];
+            sum_tags = sum_tags + entity_edits.get(k)[1];
           }
           MappingEvent e = new MappingEvent(next.getKey(), next.getValue(),
               next.getValue().getUser_counts().size(),
