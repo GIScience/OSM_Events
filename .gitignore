@@ -2,3 +2,7 @@
 **/target/
 nbactions.xml
 oshdb.properties
+.project
+.classpath
+nb-configuration.xml
+*~
