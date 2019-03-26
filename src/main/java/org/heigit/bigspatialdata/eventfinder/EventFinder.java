@@ -289,18 +289,16 @@ public class EventFinder {
   private static Map<Integer, Polygon> getPolygons() throws IOException {
     //read geometries
     ClassLoader classloader = Thread.currentThread().getContextClassLoader();
-    InputStream is = classloader.getResourceAsStream("grid_20000.geojson");
+    InputStream is = classloader.getResourceAsStream("grid_20000_id.geojson");
     String json = IOUtils.toString(is);
     Map<Integer, Polygon> geometries = new HashMap<>();
     FeatureCollection featureCollection = (FeatureCollection) GeoJSONFactory.create(json);
     GeometryFactory gf = new GeometryFactory();
     GeoJSONReader gjr = new GeoJSONReader();
 
-    Integer featureId = 0;
     for (Feature f : featureCollection.getFeatures()) {
-      geometries.put(featureId,
+      geometries.put((Integer) f.getProperties().get("id"),
           gf.createPolygon(gjr.read(f.getGeometry()).getCoordinates()));
-      featureId++;
     }
     return geometries;
   }
