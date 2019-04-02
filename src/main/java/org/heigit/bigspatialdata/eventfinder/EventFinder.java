@@ -1,10 +1,12 @@
 package org.heigit.bigspatialdata.eventfinder;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.text.DateFormat;
@@ -22,7 +24,6 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.time.DateUtils;
 import org.apache.commons.lang3.time.StopWatch;
 import org.apache.commons.math3.exception.ConvergenceException;
@@ -288,9 +289,14 @@ public class EventFinder {
     //read geometries
     ClassLoader classloader = Thread.currentThread().getContextClassLoader();
     InputStream is = classloader.getResourceAsStream("grid_20000_id.geojson");
-    String json = IOUtils.toString(is);
+    
+    BufferedReader br=new BufferedReader(new InputStreamReader(is));
+    StringBuilder sb=new StringBuilder();
+    br.lines().forEach(line-> sb.append(line));
+    String geoJson = sb.toString();
+
     Map<Integer, Polygon> geometries = new HashMap<>();
-    FeatureCollection featureCollection = (FeatureCollection) GeoJSONFactory.create(json);
+    FeatureCollection featureCollection = (FeatureCollection) GeoJSONFactory.create(geoJson);
     GeometryFactory gf = new GeometryFactory();
     GeoJSONReader gjr = new GeoJSONReader();
 
