@@ -69,7 +69,7 @@ public class EventFinder {
           .inMemory(true);
       keytables = (OSHDBJdbc) oshdb;
     } else {
-      oshdb = new OSHDBIgnite(EventFinder.class.getResource("/ohsome-ignite-dev.xml")
+      oshdb = new OSHDBIgnite(EventFinder.class.getResource("/ignite-prod-ohsome-client.xml")
           .getFile());
       oshdb.prefix("global_v4");
       Connection conn = DriverManager.getConnection(
