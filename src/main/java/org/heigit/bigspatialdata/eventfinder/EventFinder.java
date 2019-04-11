@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -156,7 +157,7 @@ public class EventFinder {
     
     File conv_file = new File("target/Convergence_errors.csv");
     FileWriter conv_writer = new FileWriter(conv_file);
-    conv_writer.write("GeomNr.\n")
+    conv_writer.write("GeomNr.\n");
     //TODO many loops following. Can we simplify?
     //iterate
     nest.forEach((Integer geom, SortedMap<OSHDBTimestamp, MappingMonth> geomContributions) -> {
@@ -294,7 +295,7 @@ public class EventFinder {
       out.put(geom, list); // add to list of events
     });
     
-    conv_writer.close()
+    conv_writer.close();
     createStarted.stop();
     double toMinutes = (createStarted.getTime() / 1000.0) / 60.0;
 
