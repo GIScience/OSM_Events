@@ -113,11 +113,7 @@ public class EventFinder {
         .osmType(OSMType.NODE, OSMType.WAY)
         .timestamps("2004-01-01", "2019-02-01", OSHDBTimestamps.Interval.MONTHLY)
         .aggregateByGeometry(EventFinder.getPolygons())
-        .aggregateByTimestamp(contribution ->
-            new OSHDBTimestamp(
-                DateUtils.round(contribution.getTimestamp().toDate(), Calendar.MONTH)
-            )
-        )
+        .aggregateByTimestamp(OSMContribution::getTimestamp)
         .map(new MapFunk())
         .reduce(new NewMapMonth(), new MonthCombiner());
 
