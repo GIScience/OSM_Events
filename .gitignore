@@ -6,3 +6,4 @@ oshdb.properties
 .classpath
 nb-configuration.xml
 *~
+*.csv

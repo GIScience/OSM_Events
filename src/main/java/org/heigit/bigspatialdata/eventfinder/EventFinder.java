@@ -14,7 +14,6 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -26,7 +25,6 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.apache.commons.lang3.time.DateUtils;
 import org.apache.commons.lang3.time.StopWatch;
 import org.apache.commons.math3.exception.ConvergenceException;
 import org.apache.commons.math3.fitting.WeightedObservedPoint;
@@ -53,7 +51,6 @@ public class EventFinder {
 
   private static final org.slf4j.Logger LOG = LoggerFactory.getLogger(EventFinder.class);
 
-  // this should be replaced with an iteration over grid cells at the highest 
   public static void main(String[] args) throws Exception {
 
     LOG.info("Start preparation");
@@ -112,7 +109,7 @@ public class EventFinder {
         .on(oshdb)
         .keytables(keytables)
         .areaOfInterest(bb)
-        //Relations make this VERY slow!!! We could include multipolygons seperately. Also: Do we have duplicate edites
+        //Relations are excluded because they hold only little extra information and make this process very slow!
         .osmType(OSMType.NODE, OSMType.WAY)
         .timestamps("2004-01-01", "2019-02-01", OSHDBTimestamps.Interval.MONTHLY)
         .aggregateByGeometry(EventFinder.getPolygons())
@@ -151,11 +148,11 @@ public class EventFinder {
     //devide result into resulty per geometry
     SortedMap<Integer, SortedMap<OSHDBTimestamp, MappingMonth>> nest
         = OSHDBCombinedIndex.nest(months);
-    
+
     File conv_file = new File("target/Convergence_errors.csv");
     FileWriter conv_writer = new FileWriter(conv_file);
     conv_writer.write("GeomNr.\n");
-    //TODO many loops following. Can we simplify?
+
     //iterate
     nest.forEach((Integer geom, SortedMap<OSHDBTimestamp, MappingMonth> geomContributions) -> {
       ArrayList<MappingEvent> list = new ArrayList<>();
@@ -174,15 +171,11 @@ public class EventFinder {
         geomContributions.remove(geomContributions.lastKey());
       }
 
-
-      /* for (OSHDBTimestamp t:contributions.keySet()) {
-    System.out.println(t.formatIsoDateTime()+": "+contributions.get(t));
-    } */
       // create accumulative data
-      SortedMap<OSHDBTimestamp, Integer> acc_result = new TreeMap<OSHDBTimestamp, Integer>();
+      SortedMap<OSHDBTimestamp, Integer> acc_result = new TreeMap<>();
       Integer conts = 0;
       for (Entry<OSHDBTimestamp, MappingMonth> entry : geomContributions.entrySet()) {
-        conts = conts + entry.getValue().get_contributions();
+        conts += entry.getValue().get_contributions();
         acc_result.put(entry.getKey(), conts);
       }
 
@@ -190,66 +183,61 @@ public class EventFinder {
       SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
       Date date2007 = null;
       try {
-          date2007 = dateFormat.parse("2007-09-30");
+        date2007 = dateFormat.parse("2007-09-30");
       } catch (ParseException e) {
-          e.printStackTrace();
+        LOG.error("", e);
       }
-      ArrayList<WeightedObservedPoint> points = new ArrayList<WeightedObservedPoint>();
+      ArrayList<WeightedObservedPoint> points = new ArrayList<>();
       int i = 0;
       Iterator<OSHDBTimestamp> values = acc_result.keySet().iterator();
       while (values.hasNext()) {
         OSHDBTimestamp d = values.next();
-    	float v = acc_result.get(d);
-    	Date date = d.toDate();
-    	Boolean aft = date.after(date2007);
-    	if (aft) {
-    		WeightedObservedPoint point = new WeightedObservedPoint(1.0, i, v);
-    		points.add(point);
-    	}
+        float v = acc_result.get(d);
+        Date date = d.toDate();
+        Boolean aft = date.after(date2007);
+        if (aft) {
+          WeightedObservedPoint point = new WeightedObservedPoint(1.0, i, v);
+          points.add(point);
+        }
         i++;
       }
-          
+
       // fit curve
       MyFuncFitter fitter = new MyFuncFitter();
       double[] coeffs;
       try {
         coeffs = fitter.fit(points);
       } catch (ConvergenceException ex) {
-        conv_writer.write(geom.toString()+"\n");
-        ex.printStackTrace();
+        try {
+          conv_writer.write(geom.toString() + "\n");
+        } catch (IOException ex1) {
+          LOG.error("", ex1);
+        }
+        LOG.warn("Geom " + geom + " did not converge!", ex);
         return;
       }
 
       // compute errors
-      HashMap<OSHDBTimestamp, Double> errors = new HashMap<OSHDBTimestamp, Double>();
+      HashMap<OSHDBTimestamp, Double> errors = new HashMap<>();
       for (Entry<OSHDBTimestamp, MappingMonth> entry : geomContributions.entrySet()) {
         Double value = coeffs[0] / (1.0 + coeffs[1] * Math.exp(-coeffs[2] * (i - coeffs[3])));
         errors.put(entry.getKey(), acc_result.get(entry.getKey()) - value);
       }
 
-      /* PrintWriter pw = new PrintWriter(new File("C:\\temp\\near_kat_contributions.csv"));
-        StringBuilder sb = new StringBuilder();
-        sb.append("Date,Number,Dev\n");
-        for (OSHDBTimestamp tt:result.keySet()) {
-        	sb.append(tt+","+acc_result.get(tt)+","+ests.get(tt)+"\n");
-        }
-	    pw.write(sb.toString());
-	    pw.close(); */
       // get lagged errors
-      HashMap<OSHDBTimestamp, Double> lagged_errors = new HashMap<OSHDBTimestamp, Double>();
+      HashMap<OSHDBTimestamp, Double> lagged_errors = new HashMap<>();
       for (i = 1; i < geomContributions.keySet().size(); i++) {
-        Double value = errors.get(geomContributions.keySet().toArray()[i]) - errors.get(
-            geomContributions.keySet()
-                .toArray()[i - 1]);
+        Double value = errors.get(geomContributions.keySet().toArray()[i])
+            - errors.get(geomContributions.keySet().toArray()[i - 1]);
         lagged_errors.put((OSHDBTimestamp) geomContributions.keySet().toArray()[i], value);
       }
 
       // compute mean and standard deviation for lagged errors
       Double mean = 0.;
       for (Double err : lagged_errors.values()) {
-        mean = mean + err;
+        mean += err;
       }
-      mean = mean / lagged_errors.size();
+      mean /= lagged_errors.size();
       double std = 0.;
       for (double num : lagged_errors.values()) {
         std += Math.pow(num - mean, 2);
@@ -271,14 +259,14 @@ public class EventFinder {
           int sum_tags = 0;
           int sum_geom = 0;
           for (long k : entity_edits.keySet()) {
-            sum_geom = sum_geom + entity_edits.get(k)[0];
-            sum_tags = sum_tags + entity_edits.get(k)[1];
+            sum_geom += entity_edits.get(k)[0];
+            sum_tags += entity_edits.get(k)[1];
           }
           MappingEvent e = new MappingEvent(next.getKey(), next.getValue(),
               next.getValue().getUser_counts().size(),
               acc_result.get(next.getKey()) - acc_result.get(m_lag),
-              ((float) (acc_result.get(next.getKey()) - (float) acc_result.get(m_lag))
-              / (float) acc_result.get(m_lag)),
+              ((acc_result.get(next.getKey()) - (float) acc_result.get(m_lag))
+              / acc_result.get(m_lag)),
               Collections.max(next.getValue().getUser_counts().values()),
               coeffs,
               next.getValue().get_type_counts(),
@@ -291,7 +279,7 @@ public class EventFinder {
       }
       out.put(geom, list); // add to list of events
     });
-    
+
     conv_writer.close();
     createStarted.stop();
     double toMinutes = (createStarted.getTime() / 1000.0) / 60.0;
@@ -305,10 +293,10 @@ public class EventFinder {
     //read geometries
     ClassLoader classloader = Thread.currentThread().getContextClassLoader();
     InputStream is = classloader.getResourceAsStream("grid_20000_id.geojson");
-    
-    BufferedReader br=new BufferedReader(new InputStreamReader(is));
-    StringBuilder sb=new StringBuilder();
-    br.lines().forEach(line-> sb.append(line));
+
+    BufferedReader br = new BufferedReader(new InputStreamReader(is));
+    StringBuilder sb = new StringBuilder();
+    br.lines().forEach(line -> sb.append(line));
     String geoJson = sb.toString();
 
     Map<Integer, Polygon> geometries = new HashMap<>();
@@ -331,67 +319,67 @@ public class EventFinder {
     //write output
     File file = new File("target/MappingEvents.csv");
 
-//Create the file
+    //Create the file
     if (file.createNewFile()) {
       System.out.println("File is created!");
     } else {
       System.out.println("File already exists.");
     }
 
-//Write Content
-    FileWriter writer = new FileWriter(file);
-    writer.write(
-        "ID;GeomNr.;EventNr.;Timestamp;Users;Contributions;Change;MaxContributions;EditedEntitities;AverageGeomChanges;AverageTagChanges;Pvalue;Coeffs;TypeCounts\n");
-
-    int[] id = {0};
-    String pattern = "yyyy-MM";
-    DateFormat df = new SimpleDateFormat(pattern);
-    events.forEach((Integer geom, ArrayList<MappingEvent> ev) -> {
-      if (ev.isEmpty()) {
-        return;
-      }
-      System.out.println("");
-      System.out.println("");
-      System.out.println("Events for geom Nr. " + geom);
-      System.out.println("");
-      int[] eventnr = {1};
-      ev.forEach((MappingEvent e) -> {
-        try {
-          writer.write(
-              id[0] + ";"
-              + geom + ";"
-              + eventnr[0] + ";"
-              + df.format(e.getTimestap().toDate()) + ";"
-              + e.getUser_counts().size() + ";"
-              + e.get_contributions() + ";"
-              + e.getDeltakontrib() + ";"
-              + e.getMaxCont() + ";"
-              + e.get_entity_edits().size() + ";"
-              + e.get_geom_change_average() + ";"
-              + e.get_tag_change_average() + ";"
-              + e.get_pvalue() + ";"
-              + Arrays.toString(e.getCoeffs()) + ";"
-              + e.get_type_counts().toString() + ";"
-              + "\n"
-          );
-        } catch (IOException ex) {
-          Logger.getLogger(EventFinder.class.getName()).log(Level.SEVERE, null, ex);
+    try ( //Write Content
+        FileWriter writer = new FileWriter(file)) {
+      writer.write(
+          "ID;GeomNr.;EventNr.;Timestamp;Users;Contributions;Change;MaxContributions;EditedEntitities;AverageGeomChanges;AverageTagChanges;Pvalue;Coeffs;TypeCounts\n");
+      
+      int[] id = {0};
+      String pattern = "yyyy-MM";
+      DateFormat df = new SimpleDateFormat(pattern);
+      events.forEach((Integer geom, ArrayList<MappingEvent> ev) -> {
+        if (ev.isEmpty()) {
+          return;
         }
-        System.out.println(
-            df.format(e.getTimestap().toDate()) + ";"
-            + e.getUser_counts().size() + ";"
-            + e.get_contributions() + ";"
-            + Collections.max(e.getUser_counts().values()) + ";"
-            + e.getChange() + ";"
-            + e.get_type_counts().values() + ";"
-            + e.getMaxCont() + ";"
-            + Arrays.toString(e.getCoeffs())
-        );
-        eventnr[0] += 1;
-        id[0] += 1;
+        System.out.println("");
+        System.out.println("");
+        System.out.println("Events for geom Nr. " + geom);
+        System.out.println("");
+        int[] eventnr = {1};
+        ev.forEach((MappingEvent e) -> {
+          try {
+            writer.write(
+                id[0] + ";"
+                    + geom + ";"
+                    + eventnr[0] + ";"
+                    + df.format(e.getTimestap().toDate()) + ";"
+                    + e.getUser_counts().size() + ";"
+                    + e.get_contributions() + ";"
+                    + e.getDeltakontrib() + ";"
+                    + e.getMaxCont() + ";"
+                    + e.get_entity_edits().size() + ";"
+                    + e.get_geom_change_average() + ";"
+                    + e.get_tag_change_average() + ";"
+                    + e.get_pvalue() + ";"
+                    + Arrays.toString(e.getCoeffs()) + ";"
+                    + e.get_type_counts().toString() + ";"
+                        + "\n"
+            );
+          } catch (IOException ex) {
+            Logger.getLogger(EventFinder.class.getName()).log(Level.SEVERE, null, ex);
+          }
+          System.out.println(
+              df.format(e.getTimestap().toDate()) + ";"
+                  + e.getUser_counts().size() + ";"
+                  + e.get_contributions() + ";"
+                  + Collections.max(e.getUser_counts().values()) + ";"
+                  + e.getChange() + ";"
+                  + e.get_type_counts().values() + ";"
+                  + e.getMaxCont() + ";"
+                  + Arrays.toString(e.getCoeffs())
+          );
+          eventnr[0] += 1;
+          id[0] += 1;
+        });
       });
-    });
-    writer.close();
+    }
 
     LOG.info("Finished");
 
