@@ -12,21 +12,25 @@ import java.sql.DriverManager;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.SortedMap;
+import java.util.TimeZone;
 import java.util.TreeMap;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.commons.lang3.time.StopWatch;
-import org.apache.commons.math3.exception.ConvergenceException;
 import org.apache.commons.math3.fitting.WeightedObservedPoint;
 import org.heigit.bigspatialdata.oshdb.api.db.OSHDBDatabase;
 import org.heigit.bigspatialdata.oshdb.api.db.OSHDBH2;
@@ -66,7 +70,7 @@ public class EventFinder {
     if (oshdbProperties.getProperty("type").contains("H2")) {
       oshdb = (new OSHDBH2(oshdbProperties.getProperty("oshdb")))
           .multithreading(true)
-          .inMemory(true);
+          .inMemory(false);
       keytables = (OSHDBJdbc) oshdb;
     } else {
       oshdb = new OSHDBIgnite(EventFinder.class.getResource("/ignite-prod-ohsome-client.xml")
@@ -85,11 +89,14 @@ public class EventFinder {
         Double.valueOf(split[2]),
         Double.valueOf(split[3]));
 
-    SortedMap<OSHDBCombinedIndex<Integer, OSHDBTimestamp>, MappingMonth> queryDatabase = EventFinder
-        .queryDatabase(bb, oshdb, keytables);
-    oshdb.close();
+    Map<Integer, Polygon> polygons = EventFinder.getPolygons();
 
-    Map<Integer, ArrayList<MappingEvent>> events = EventFinder.extractEvents(queryDatabase);
+    SortedMap<OSHDBCombinedIndex<Integer, OSHDBTimestamp>, MappingMonth> queryDatabase
+        = EventFinder.queryDatabase(bb, oshdb, keytables, polygons);
+
+    Map<Integer, ArrayList<MappingEvent>> events = EventFinder
+        .extractEvents(queryDatabase, oshdb, keytables, polygons);
+    oshdb.close();
 
     EventFinder.writeOutput(events);
 
@@ -98,7 +105,8 @@ public class EventFinder {
   public static SortedMap<OSHDBCombinedIndex<Integer, OSHDBTimestamp>, MappingMonth> queryDatabase(
       OSHDBBoundingBox bb,
       OSHDBDatabase oshdb,
-      OSHDBJdbc keytables)
+      OSHDBJdbc keytables,
+      Map<Integer, Polygon> polygons)
       throws IOException, Exception {
 
     LOG.info("Run Query");
@@ -112,7 +120,7 @@ public class EventFinder {
         //Relations are excluded because they hold only little extra information and make this process very slow!
         .osmType(OSMType.NODE, OSMType.WAY)
         .timestamps("2004-01-01", "2019-02-01", OSHDBTimestamps.Interval.MONTHLY)
-        .aggregateByGeometry(EventFinder.getPolygons())
+        .aggregateByGeometry(polygons)
         .aggregateByTimestamp(OSMContribution::getTimestamp)
         .map(new MapFunk())
         .reduce(new NewMapMonth(), new MonthCombiner());
@@ -137,7 +145,10 @@ public class EventFinder {
  * and number of contributions by type.
    */
   public static Map<Integer, ArrayList<MappingEvent>> extractEvents(
-      SortedMap<OSHDBCombinedIndex<Integer, OSHDBTimestamp>, MappingMonth> months)
+      SortedMap<OSHDBCombinedIndex<Integer, OSHDBTimestamp>, MappingMonth> months,
+      OSHDBDatabase oshdb,
+      OSHDBJdbc keytables,
+      Map<Integer, Polygon> polygons)
       throws Exception {
 
     LOG.info("Start processing result");
@@ -204,16 +215,33 @@ public class EventFinder {
 
       // fit curve
       MyFuncFitter fitter = new MyFuncFitter();
-      double[] coeffs;
+      double[] coeffs = null;
+
       try {
-        coeffs = fitter.fit(points);
-      } catch (ConvergenceException ex) {
+        //the next 10ish lines are for a timeout
+        final Duration timeout = Duration.ofSeconds(60);
+
+        CompletableFuture<double[]> handler = CompletableFuture.supplyAsync(() -> {
+          LOG.debug(
+              "Starting curvefitting. If this is the last message you see for a while something got stuck!");
+          return fitter.fit(points);
+        });
+        coeffs = handler.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
+      } catch (InterruptedException | ExecutionException ex) {
         try {
           conv_writer.write(geom.toString() + "\n");
         } catch (IOException ex1) {
           LOG.error("", ex1);
         }
         LOG.warn("Geom " + geom + " did not converge!", ex);
+        return;
+      } catch (TimeoutException e) {
+        try {
+          conv_writer.write("timeout;##### " + geom.toString() + "\n");
+        } catch (IOException ex1) {
+          LOG.error("", ex1);
+        }
+        LOG.warn("Geom " + geom + " did timeout!", e);
         return;
       }
 
@@ -255,12 +283,24 @@ public class EventFinder {
         OSHDBTimestamp m_lag = (OSHDBTimestamp) geomContributions.keySet().toArray()[i - 1];
         Double error = (lagged_errors.get(next.getKey()) - mean) / std; // normalized error
         if (error > 1.644854) { // if error is positively significant at 95% - create event
-          HashMap<Long, int[]> entity_edits = next.getValue().get_entity_edits();
-          int sum_tags = 0;
-          int sum_geom = 0;
-          for (long k : entity_edits.keySet()) {
-            sum_geom += entity_edits.get(k)[0];
-            sum_tags += entity_edits.get(k)[1];
+          Date date = next.getKey().toDate();
+          date.setMonth(date.getMonth());
+          TimeZone tz = TimeZone.getTimeZone("UTC");
+          DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'"); // Quoted "Z" to indicate UTC, no timezone offset
+          df.setTimeZone(tz);
+          String nowAsISO = df.format(date);
+          OSHDBTimestamps ts = new OSHDBTimestamps(
+              next.getKey().toString(),
+              nowAsISO);
+          int[] entity_edits = new int[3];
+          try {
+            entity_edits = EventFinder.queryEntityEdits(
+                oshdb,
+                keytables,
+                polygons.get(geom),
+                ts);
+          } catch (Exception ex) {
+            LOG.error("", ex);
           }
           MappingEvent e = new MappingEvent(next.getKey(), next.getValue(),
               next.getValue().getUser_counts().size(),
@@ -270,8 +310,9 @@ public class EventFinder {
               Collections.max(next.getValue().getUser_counts().values()),
               coeffs,
               next.getValue().get_type_counts(),
-              (float) sum_geom / entity_edits.size(),
-              (float) sum_tags / entity_edits.size(),
+              entity_edits[0],
+              entity_edits[1],
+              entity_edits[2],
               error);
           list.add(e);
         }
@@ -330,7 +371,7 @@ public class EventFinder {
         FileWriter writer = new FileWriter(file)) {
       writer.write(
           "ID;GeomNr.;EventNr.;Timestamp;Users;Contributions;Change;MaxContributions;EditedEntitities;AverageGeomChanges;AverageTagChanges;Pvalue;Coeffs;TypeCounts\n");
-      
+
       int[] id = {0};
       String pattern = "yyyy-MM";
       DateFormat df = new SimpleDateFormat(pattern);
@@ -347,33 +388,33 @@ public class EventFinder {
           try {
             writer.write(
                 id[0] + ";"
-                    + geom + ";"
-                    + eventnr[0] + ";"
-                    + df.format(e.getTimestap().toDate()) + ";"
-                    + e.getUser_counts().size() + ";"
-                    + e.get_contributions() + ";"
-                    + e.getDeltakontrib() + ";"
-                    + e.getMaxCont() + ";"
-                    + e.get_entity_edits().size() + ";"
-                    + e.get_geom_change_average() + ";"
-                    + e.get_tag_change_average() + ";"
-                    + e.get_pvalue() + ";"
-                    + Arrays.toString(e.getCoeffs()) + ";"
-                    + e.get_type_counts().toString() + ";"
-                        + "\n"
+                + geom + ";"
+                + eventnr[0] + ";"
+                + df.format(e.getTimestap().toDate()) + ";"
+                + e.getUser_counts().size() + ";"
+                + e.get_contributions() + ";"
+                + e.getDeltakontrib() + ";"
+                + e.getMaxCont() + ";"
+                + e.getEntitiesChanged() + ";"
+                + e.get_geom_change_average() + ";"
+                + e.get_tag_change_average() + ";"
+                + e.get_pvalue() + ";"
+                + Arrays.toString(e.getCoeffs()) + ";"
+                + e.get_type_counts().toString() + ";"
+                + "\n"
             );
           } catch (IOException ex) {
-            Logger.getLogger(EventFinder.class.getName()).log(Level.SEVERE, null, ex);
+            LOG.error("Could not write output.", ex);
           }
           System.out.println(
               df.format(e.getTimestap().toDate()) + ";"
-                  + e.getUser_counts().size() + ";"
-                  + e.get_contributions() + ";"
-                  + Collections.max(e.getUser_counts().values()) + ";"
-                  + e.getChange() + ";"
-                  + e.get_type_counts().values() + ";"
-                  + e.getMaxCont() + ";"
-                  + Arrays.toString(e.getCoeffs())
+              + e.getUser_counts().size() + ";"
+              + e.get_contributions() + ";"
+              + Collections.max(e.getUser_counts().values()) + ";"
+              + e.getChange() + ";"
+              + e.get_type_counts().values() + ";"
+              + e.getMaxCont() + ";"
+              + Arrays.toString(e.getCoeffs())
           );
           eventnr[0] += 1;
           id[0] += 1;
@@ -382,6 +423,49 @@ public class EventFinder {
     }
 
     LOG.info("Finished");
+
+  }
+
+  private static int[] queryEntityEdits(
+      OSHDBDatabase oshdb,
+      OSHDBJdbc keytables,
+      Polygon polygon,
+      OSHDBTimestamps ts) throws Exception {
+
+    LOG.info("Run follow-up query");
+
+    StopWatch createStarted = StopWatch.createStarted();
+    // collect contributions by month
+    int[] result = OSMContributionView
+        .on(oshdb)
+        .keytables(keytables)
+        .areaOfInterest(polygon)
+        //Relations are excluded because they hold only little extra information and make this process very slow!
+        .osmType(OSMType.NODE, OSMType.WAY)
+        .timestamps(ts)
+        .groupByEntity()
+        .map((List<OSMContribution> contribList) -> {
+          int[] currRes = new int[]{0, 0, 0};
+          currRes[0] = 1;
+          for (OSMContribution contrib : contribList) {
+            int[] geomTagCount = MapFunk.getGeomTagCount(contrib);
+            currRes[1] = geomTagCount[0];
+            currRes[2] = geomTagCount[1];
+          }
+          return currRes;
+        })
+        .reduce(
+            () -> new int[3],
+            (int[] arr1, int[] arr2) ->
+            new int[]{arr1[0] + arr2[0], arr1[1] + arr2[1], arr1[2] + arr2[2]}
+        );
+
+    createStarted.stop();
+    double toMinutes = (createStarted.getTime() / 1000.0) / 60.0;
+
+    LOG.info("Query Finished, took " + toMinutes + " minutes");
+
+    return result;
 
   }
 

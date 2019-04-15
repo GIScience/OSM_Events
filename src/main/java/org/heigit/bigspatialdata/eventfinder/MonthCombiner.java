@@ -19,14 +19,6 @@ public class MonthCombiner implements SerializableBinaryOperator<MappingMonth> {
         userCounts.merge(ct, cou, (v1, v2) -> v1 + v2)
     );
     result.setUser_counts(userCounts);
-
-    HashMap<Long, int[]> entity_edits = new HashMap();
-    entity_edits.putAll(arg0.get_entity_edits());
-    arg1.get_entity_edits().forEach(
-    		(Long ct, int[] cu) ->
-    		entity_edits.merge(ct, cu, (v1, v2) -> arg0.pairwise_sum(v1, v2))
-    );
-    result.set_entity_edits(entity_edits);
     
     HashMap<ContributionType, Integer> contribs = new HashMap<>();
     contribs.putAll(arg0.get_type_counts());

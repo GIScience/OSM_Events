@@ -2,7 +2,6 @@ package org.heigit.bigspatialdata.eventfinder;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -16,12 +15,52 @@ public class MapFunk implements SerializableFunction<OSMContribution, MappingMon
 
   @Override
   public MappingMonth apply(OSMContribution c) {
+    int count = 0;
+    int[] counts = new int[]{0, 0};
+    if (c.getContributionTypes().contains(ContributionType.DELETION)) {
+      count += 1; // a deletion is considered as one action
+    } else {
+      counts = MapFunk.getGeomTagCount(c);
+    }
+    count = count + counts[0] + counts[1];
+    HashMap<Integer, Integer> users_conts = new HashMap<>();
+    HashMap<ContributionType, Integer> type_counts = new HashMap<>();
+    type_counts.put(ContributionType.CREATION, 0);
+    type_counts.put(ContributionType.DELETION, 0);
+    type_counts.put(ContributionType.GEOMETRY_CHANGE, 0);
+    type_counts.put(ContributionType.TAG_CHANGE, 0);
+    Integer user = c.getContributorUserId();
+    if (!users_conts.containsKey(user)) {
+      users_conts.put(user, count);
+    } else {
+      users_conts.put(user, users_conts.get(user) + count);
+    }
+
+    if (c.getContributionTypes().contains(ContributionType.CREATION)) {
+      type_counts.put(ContributionType.CREATION,
+          type_counts.get(ContributionType.CREATION) + 1);
+    }
+    if (c.getContributionTypes().contains(ContributionType.DELETION)) {
+      type_counts.put(ContributionType.DELETION,
+          type_counts.get(ContributionType.DELETION) + 1);
+    }
+    if (c.getContributionTypes().contains(ContributionType.GEOMETRY_CHANGE)) {
+      type_counts.put(ContributionType.GEOMETRY_CHANGE, type_counts.get(
+          ContributionType.GEOMETRY_CHANGE) + 1);
+    }
+    if (c.getContributionTypes().contains(ContributionType.TAG_CHANGE)) {
+      type_counts.put(ContributionType.TAG_CHANGE, type_counts.get(
+          ContributionType.TAG_CHANGE) + 1);
+    }
+
+    MappingMonth result = new MappingMonth(count, users_conts, type_counts);
+    return result;
+  }
+
+  public static int[] getGeomTagCount(OSMContribution c) {
     int geom_count = 0;
     int tag_count = 0;
-    int count = 0;
-    if (c.getContributionTypes().contains(ContributionType.DELETION)) {
-      count = count + 1; // a deletion is considered as one action
-    } else if (c.getContributionTypes().contains(ContributionType.CREATION)) {
+    if (c.getContributionTypes().contains(ContributionType.CREATION)) {
       geom_count += c.getGeometryAfter().getCoordinates().length;
       Iterator<OSHDBTag> tags = c.getEntityAfter().getTags().iterator();
       while (tags.hasNext()) {
@@ -77,55 +116,7 @@ public class MapFunk implements SerializableFunction<OSMContribution, MappingMon
         tag_count = tag_count + tags_dels + tags_adds;
       }
     }
-    count = count + geom_count + tag_count;
-    HashMap<Integer, Integer> users_conts = new HashMap<Integer, Integer>();
-    HashMap<ContributionType, Integer> type_counts = new HashMap<ContributionType, Integer>();
-    HashMap<Long, int[]> entity_edits = new HashMap<Long, int[]>();
-    int[] edits_by_type = {geom_count, tag_count};
-    long entity_id = 0;
-    if (!c.getContributionTypes().contains(ContributionType.DELETION)) {
-        entity_id = c.getEntityAfter().getId();
-    } else {
-        entity_id = c.getEntityBefore().getId();
-    }
-    if (!entity_edits.containsKey(entity_id)) {
-        entity_edits.put(entity_id, edits_by_type);
-    } else {
-        int[] current_count = entity_edits.get(entity_id);
-        current_count[0] = current_count[0] + geom_count;
-        current_count[1] = current_count[1] + tag_count;
-        entity_edits.put(entity_id, current_count);
-    }
-    type_counts.put(ContributionType.CREATION, 0);
-    type_counts.put(ContributionType.DELETION, 0);
-    type_counts.put(ContributionType.GEOMETRY_CHANGE, 0);
-    type_counts.put(ContributionType.TAG_CHANGE, 0);
-    Integer user = c.getContributorUserId();
-    if (!users_conts.containsKey(user)) {
-      users_conts.put(user, count);
-    } else {
-      users_conts.put(user, users_conts.get(user) + count);
-    }
-
-    if (c.getContributionTypes().contains(ContributionType.CREATION)) {
-      type_counts.put(ContributionType.CREATION,
-          type_counts.get(ContributionType.CREATION) + 1);
-    }
-    if (c.getContributionTypes().contains(ContributionType.DELETION)) {
-      type_counts.put(ContributionType.DELETION,
-          type_counts.get(ContributionType.DELETION) + 1);
-    }
-    if (c.getContributionTypes().contains(ContributionType.GEOMETRY_CHANGE)) {
-      type_counts.put(ContributionType.GEOMETRY_CHANGE, type_counts.get(
-          ContributionType.GEOMETRY_CHANGE) + 1);
-    }
-    if (c.getContributionTypes().contains(ContributionType.TAG_CHANGE)) {
-      type_counts.put(ContributionType.TAG_CHANGE, type_counts.get(
-          ContributionType.TAG_CHANGE) + 1);
-    }
-
-    MappingMonth result = new MappingMonth(count, users_conts, type_counts, entity_edits);
-    return result;
+    return new int[]{geom_count, tag_count};
   }
 
 }
