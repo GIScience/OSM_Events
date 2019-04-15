@@ -12,7 +12,7 @@ import org.apache.commons.math3.linear.RealMatrix;
 
 class MyFunc implements ParametricUnivariateFunction {
 	public double value(double t, double ... parameters) {
-		return parameters[0]/(1.0 + parameters[1] * Math.exp(-parameters[2] * (t - parameters[3]))); // logistic function to be estimated
+		return parameters[0]/(1.0 + parameters[1] * Math.exp(parameters[2] * (t + parameters[3]))); // logistic function to be estimated
 	}
 
 	public double[] gradient(double t, double... parameters) { // partial derivatives of the function
@@ -22,10 +22,10 @@ class MyFunc implements ParametricUnivariateFunction {
 		final double u = parameters[3];
 		
 		return new double[] {
-				1 / (b * Math.exp(-k * (t - u)) + 1),
-				-a * Math.exp(k*(t-u)) / Math.pow(Math.exp(k*(t-u)) + b, 2),
-				a*b*(t-u)*Math.exp(k*(t-u)) / Math.pow(b + Math.exp(k*(t-u)), 2),
-				-a*b*k*Math.exp(k*(t-u)) / Math.pow(b + Math.exp(k*(t-u)), 2)
+				1 / (b * Math.exp(k * (t + u)) + 1),
+				-a * Math.exp(k * (t + u)) / Math.pow(1 + b * Math.exp(k*(t+u)), 2),
+				-a * b * (t + u) * Math.exp(k * (t + u)) / Math.pow(1 + b * Math.exp(k*(t+u)), 2),
+				-a * b * k * Math.exp(k * (t + u)) / Math.pow(1 + b * Math.exp(k*(t+u)), 2)
 		};		
 	}
 }
@@ -35,7 +35,7 @@ public class MyFuncFitter extends AbstractCurveFitter {
 		final int len = points.size();
 		final double[] target = new double[len];
 		final double[] weights = new double[len];
-		final double[] initialGuess = {1.0, 1.0, 1.0, 1.0};
+		final double[] initialGuess = {100.0, 1.0, -1.0, -100.0};
 		
 		int i = 0;
 		for (WeightedObservedPoint point: points) {

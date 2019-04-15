@@ -10,11 +10,13 @@ import java.io.InputStreamReader;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.text.DateFormat;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -149,7 +151,10 @@ public class EventFinder {
     //devide result into resulty per geometry
     SortedMap<Integer, SortedMap<OSHDBTimestamp, MappingMonth>> nest
         = OSHDBCombinedIndex.nest(months);
-
+    
+    File conv_file = new File("target/Convergence_errors.csv");
+    FileWriter conv_writer = new FileWriter(conv_file);
+    conv_writer.write("GeomNr.\n");
     //TODO many loops following. Can we simplify?
     //iterate
     nest.forEach((Integer geom, SortedMap<OSHDBTimestamp, MappingMonth> geomContributions) -> {
@@ -182,22 +187,35 @@ public class EventFinder {
       }
 
       // create data for curve fitting
+      SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+      Date date2007 = null;
+      try {
+          date2007 = dateFormat.parse("2007-09-30");
+      } catch (ParseException e) {
+          e.printStackTrace();
+      }
       ArrayList<WeightedObservedPoint> points = new ArrayList<WeightedObservedPoint>();
       int i = 0;
-      Iterator<Integer> values = acc_result.values().iterator();
+      Iterator<OSHDBTimestamp> values = acc_result.keySet().iterator();
       while (values.hasNext()) {
-        float v = (float) values.next();
-        WeightedObservedPoint point = new WeightedObservedPoint(1.0, i, v);
-        points.add(point);
+        OSHDBTimestamp d = values.next();
+    	float v = acc_result.get(d);
+    	Date date = d.toDate();
+    	Boolean aft = date.after(date2007);
+    	if (aft) {
+    		WeightedObservedPoint point = new WeightedObservedPoint(1.0, i, v);
+    		points.add(point);
+    	}
         i++;
       }
-
+          
       // fit curve
       MyFuncFitter fitter = new MyFuncFitter();
       double[] coeffs;
       try {
         coeffs = fitter.fit(points);
       } catch (ConvergenceException ex) {
+        conv_writer.write(geom.toString()+"\n");
         ex.printStackTrace();
         return;
       }
@@ -273,7 +291,8 @@ public class EventFinder {
       }
       out.put(geom, list); // add to list of events
     });
-
+    
+    conv_writer.close();
     createStarted.stop();
     double toMinutes = (createStarted.getTime() / 1000.0) / 60.0;
 
