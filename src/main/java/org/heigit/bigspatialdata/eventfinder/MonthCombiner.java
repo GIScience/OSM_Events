@@ -11,6 +11,11 @@ public class MonthCombiner implements SerializableBinaryOperator<MappingMonth> {
     MappingMonth result = (new NewMapMonth()).get();
 
     result.set_contributions(arg0.get_contributions() + arg1.get_contributions());
+    
+    result.set_edit_counts( new EditCountEnum(
+    	arg0.get_edit_counts().get_GEOM() + arg1.get_edit_counts().get_GEOM(),
+    	arg0.get_edit_counts().get_TAG() + arg1.get_edit_counts().get_TAG())
+    );
 
     HashMap<Integer, Integer> userCounts = new HashMap<>();
     userCounts.putAll(arg0.getUser_counts());

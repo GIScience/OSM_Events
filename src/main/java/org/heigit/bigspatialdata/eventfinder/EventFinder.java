@@ -293,9 +293,9 @@ public class EventFinder {
           OSHDBTimestamps ts = new OSHDBTimestamps(
               next.getKey().toString(),
               nowAsISO);
-          int[] entity_edits = new int[3];
+          int edited_entities = 0; 
           try {
-            entity_edits = EventFinder.queryEntityEdits(
+            edited_entities = EventFinder.queryEntityEdits(
                 oshdb,
                 keytables,
                 polygons.get(geom),
@@ -311,9 +311,9 @@ public class EventFinder {
               Collections.max(next.getValue().getUser_counts().values()),
               coeffs,
               next.getValue().get_type_counts(),
-              entity_edits[0],
-              entity_edits[1],
-              entity_edits[2],
+              edited_entities,
+              next.getValue().get_edit_counts().get_GEOM(),
+              next.getValue().get_edit_counts().get_TAG(),
               error);
           list.add(e);
         }
@@ -427,7 +427,7 @@ public class EventFinder {
 
   }
 
-  private static int[] queryEntityEdits(
+  private static int queryEntityEdits(
       OSHDBDatabase oshdb,
       OSHDBJdbc keytables,
       Polygon polygon,
@@ -437,31 +437,17 @@ public class EventFinder {
 
     StopWatch createStarted = StopWatch.createStarted();
     // collect contributions by month
-    int[] result = OSMContributionView
+    int result = OSMContributionView
         .on(oshdb)
         .keytables(keytables)
         .areaOfInterest(polygon)
         //Relations are excluded because they hold only little extra information and make this process very slow!
         .osmType(OSMType.NODE, OSMType.WAY)
         .timestamps(ts)
-        .groupByEntity()
-        .map((List<OSMContribution> contribList) -> {
-          int[] currRes = new int[]{0, 0, 0};
-          currRes[0] = 1;
-          for (OSMContribution contrib : contribList) {
-            if (!contrib.getContributionTypes().contains(ContributionType.DELETION)) {
-              int[] geomTagCount = MapFunk.getGeomTagCount(contrib);
-              currRes[1] += geomTagCount[0];
-              currRes[2] += geomTagCount[1];
-            }
-          }
-          return currRes;
+        .map(c -> {
+            	return c.getOSHEntity();
         })
-        .reduce(
-            () -> new int[]{0, 0, 0},
-            (int[] arr1, int[] arr2) ->
-            new int[]{arr1[0] + arr2[0], arr1[1] + arr2[1], arr1[2] + arr2[2]}
-        );
+        .countUniq();
 
     createStarted.stop();
     double toMinutes = (createStarted.getTime() / 1000.0) / 60.0;
