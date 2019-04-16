@@ -293,7 +293,7 @@ public class EventFinder {
           OSHDBTimestamps ts = new OSHDBTimestamps(
               next.getKey().toString(),
               nowAsISO);
-          int edited_entities = 0; 
+          int edited_entities = 0;
           try {
             edited_entities = EventFinder.queryEntityEdits(
                 oshdb,
@@ -303,7 +303,9 @@ public class EventFinder {
           } catch (Exception ex) {
             LOG.error("", ex);
           }
-          MappingEvent e = new MappingEvent(next.getKey(), next.getValue(),
+          MappingEvent e = new MappingEvent(
+              next.getKey(), 
+              next.getValue(),
               next.getValue().getUser_counts().size(),
               acc_result.get(next.getKey()) - acc_result.get(m_lag),
               ((acc_result.get(next.getKey()) - (float) acc_result.get(m_lag))
@@ -312,8 +314,6 @@ public class EventFinder {
               coeffs,
               next.getValue().get_type_counts(),
               edited_entities,
-              next.getValue().get_edit_counts().get_GEOM(),
-              next.getValue().get_edit_counts().get_TAG(),
               error);
           list.add(e);
         }
@@ -444,10 +444,8 @@ public class EventFinder {
         //Relations are excluded because they hold only little extra information and make this process very slow!
         .osmType(OSMType.NODE, OSMType.WAY)
         .timestamps(ts)
-        .map(c -> {
-            	return c.getOSHEntity();
-        })
-        .countUniq();
+        .groupByEntity()
+        .count();
 
     createStarted.stop();
     double toMinutes = (createStarted.getTime() / 1000.0) / 60.0;

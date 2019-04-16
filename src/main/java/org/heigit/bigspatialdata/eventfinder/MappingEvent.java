@@ -7,6 +7,7 @@ import org.heigit.bigspatialdata.oshdb.util.celliterator.ContributionType;
 public class MappingEvent extends MappingMonth {
 
   private final int entitiesChanged;
+
   private final int users;
 
   private final float change;
@@ -21,10 +22,6 @@ public class MappingEvent extends MappingMonth {
 
   private final HashMap<ContributionType, Integer> type_counts;
 
-  private final int tag_change;
-
-  private final int geom_change;
-
   private final Double pvalue;
 
   MappingEvent(
@@ -37,10 +34,12 @@ public class MappingEvent extends MappingMonth {
       double[] coeffs,
       HashMap<ContributionType, Integer> type_counts,
       int entitiesChanged,
-      int geom_change,
-      int tag_change,
       Double pvalue) {
-    super(value.get_contributions(), value.getUser_counts(), value.get_type_counts(), value.get_edit_counts());
+    super(
+        value.get_contributions(),
+        value.getUser_counts(),
+        value.get_type_counts(),
+        value.get_edit_counts());
     this.timestap = key;
     this.users = users;
     this.deltakontrib = delta;
@@ -48,8 +47,6 @@ public class MappingEvent extends MappingMonth {
     this.coeffs = coeffs;
     this.maxCont = maxCont;
     this.type_counts = type_counts;
-    this.geom_change = geom_change;
-    this.tag_change = tag_change;
     this.entitiesChanged = entitiesChanged;
     this.pvalue = pvalue;
   }
@@ -88,11 +85,11 @@ public class MappingEvent extends MappingMonth {
 
   public float get_tag_change_average() {
     //prevent division by 0
-    return 1.0f * this.tag_change / (this.entitiesChanged + 1);
+    return 1.0f * this.get_edit_counts().get_TAG() / (this.entitiesChanged + 1);
   }
 
   public float get_geom_change_average() {
-    return 1.0f * this.geom_change / (this.entitiesChanged + 1);
+    return 1.0f * this.get_edit_counts().get_GEOM() / (this.entitiesChanged + 1);
   }
 
   public Double get_pvalue() {
