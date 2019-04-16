@@ -42,6 +42,7 @@ import org.heigit.bigspatialdata.oshdb.api.object.OSMContribution;
 import org.heigit.bigspatialdata.oshdb.osm.OSMType;
 import org.heigit.bigspatialdata.oshdb.util.OSHDBBoundingBox;
 import org.heigit.bigspatialdata.oshdb.util.OSHDBTimestamp;
+import org.heigit.bigspatialdata.oshdb.util.celliterator.ContributionType;
 import org.heigit.bigspatialdata.oshdb.util.time.OSHDBTimestamps;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Polygon;
@@ -284,7 +285,7 @@ public class EventFinder {
         Double error = (lagged_errors.get(next.getKey()) - mean) / std; // normalized error
         if (error > 1.644854) { // if error is positively significant at 95% - create event
           Date date = next.getKey().toDate();
-          date.setMonth(date.getMonth());
+          date.setMonth(date.getMonth() + 1);
           TimeZone tz = TimeZone.getTimeZone("UTC");
           DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'"); // Quoted "Z" to indicate UTC, no timezone offset
           df.setTimeZone(tz);
@@ -448,14 +449,16 @@ public class EventFinder {
           int[] currRes = new int[]{0, 0, 0};
           currRes[0] = 1;
           for (OSMContribution contrib : contribList) {
-            int[] geomTagCount = MapFunk.getGeomTagCount(contrib);
-            currRes[1] = geomTagCount[0];
-            currRes[2] = geomTagCount[1];
+            if (!contrib.getContributionTypes().contains(ContributionType.DELETION)) {
+              int[] geomTagCount = MapFunk.getGeomTagCount(contrib);
+              currRes[1] += geomTagCount[0];
+              currRes[2] += geomTagCount[1];
+            }
           }
           return currRes;
         })
         .reduce(
-            () -> new int[3],
+            () -> new int[]{0, 0, 0},
             (int[] arr1, int[] arr2) ->
             new int[]{arr1[0] + arr2[0], arr1[1] + arr2[1], arr1[2] + arr2[2]}
         );

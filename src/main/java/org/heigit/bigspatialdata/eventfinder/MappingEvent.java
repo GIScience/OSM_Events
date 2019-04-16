@@ -27,10 +27,19 @@ public class MappingEvent extends MappingMonth {
 
   private final Double pvalue;
 
-  MappingEvent(OSHDBTimestamp key, MappingMonth value, int users, float contributions, float delta,
-      Integer maxCont, double[] coeffs,
-      HashMap<ContributionType, Integer> type_counts, int geom_change, int tag_change,
-      int entitiesChanged, Double pvalue) {
+  MappingEvent(
+      OSHDBTimestamp key,
+      MappingMonth value,
+      int users,
+      float contributions,
+      float delta,
+      Integer maxCont,
+      double[] coeffs,
+      HashMap<ContributionType, Integer> type_counts,
+      int entitiesChanged,
+      int geom_change,
+      int tag_change,
+      Double pvalue) {
     super(value.get_contributions(), value.getUser_counts(), value.get_type_counts());
     this.timestap = key;
     this.users = users;
@@ -79,11 +88,11 @@ public class MappingEvent extends MappingMonth {
 
   public float get_tag_change_average() {
     //prevent division by 0
-    return this.tag_change / (this.entitiesChanged + 1);
+    return 1.0f * this.tag_change / (this.entitiesChanged + 1);
   }
 
   public float get_geom_change_average() {
-    return this.geom_change / (this.entitiesChanged + 1);
+    return 1.0f * this.geom_change / (this.entitiesChanged + 1);
   }
 
   public Double get_pvalue() {
