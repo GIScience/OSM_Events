@@ -8,12 +8,14 @@ public class MappingMonth {
   private Integer contributions; // total number of contributions during t
   private HashMap<ContributionType, Integer> types_count; // number of contributions by each type
   private HashMap<Integer, Integer> user_counts; // number of active users during t
+  private EditCountEnum edit_counts;
 
   public MappingMonth(Integer contributions, HashMap<Integer, Integer> user_counts,
-      HashMap<ContributionType, Integer> types_count) {
+      HashMap<ContributionType, Integer> types_count, EditCountEnum edit_counts) {
     this.user_counts = user_counts;
     this.contributions = contributions;
     this.types_count = types_count;
+    this.edit_counts = edit_counts;
   }
 
   public HashMap<Integer, Integer> getUser_counts() {
@@ -46,5 +48,13 @@ public class MappingMonth {
 		  sum[i] = a[i] + b[i];
 	  }
 	  return sum;
+  }
+  
+  public EditCountEnum get_edit_counts() {
+	  return this.edit_counts;
+  }
+  
+  public void set_edit_counts(EditCountEnum edit_counts) {
+	  this.edit_counts = edit_counts;
   }
 }
