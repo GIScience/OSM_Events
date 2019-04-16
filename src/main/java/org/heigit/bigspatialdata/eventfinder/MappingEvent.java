@@ -40,7 +40,7 @@ public class MappingEvent extends MappingMonth {
       int geom_change,
       int tag_change,
       Double pvalue) {
-    super(value.get_contributions(), value.getUser_counts(), value.get_type_counts());
+    super(value.get_contributions(), value.getUser_counts(), value.get_type_counts(), value.get_edit_counts());
     this.timestap = key;
     this.users = users;
     this.deltakontrib = delta;
