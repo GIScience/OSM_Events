@@ -16,13 +16,13 @@ public class MapFunk implements SerializableFunction<OSMContribution, MappingMon
   @Override
   public MappingMonth apply(OSMContribution c) {
     int count = 0;
-    int[] counts = new int[]{0, 0};
+    EditCountEnum counts = new EditCountEnum(0, 0);
     if (c.getContributionTypes().contains(ContributionType.DELETION)) {
       count += 1; // a deletion is considered as one action
     } else {
       counts = MapFunk.getGeomTagCount(c);
     }
-    count = count + counts[0] + counts[1];
+    count = count + counts.get_GEOM() + counts.get_TAG();
     HashMap<Integer, Integer> users_conts = new HashMap<>();
     HashMap<ContributionType, Integer> type_counts = new HashMap<>();
     type_counts.put(ContributionType.CREATION, 0);
@@ -53,11 +53,11 @@ public class MapFunk implements SerializableFunction<OSMContribution, MappingMon
           ContributionType.TAG_CHANGE) + 1);
     }
 
-    MappingMonth result = new MappingMonth(count, users_conts, type_counts);
+    MappingMonth result = new MappingMonth(count, users_conts, type_counts, counts);
     return result;
   }
 
-  public static int[] getGeomTagCount(OSMContribution c) {
+  public static EditCountEnum getGeomTagCount(OSMContribution c) {
     int geom_count = 0;
     int tag_count = 0;
     if (c.getContributionTypes().contains(ContributionType.CREATION)) {
@@ -116,7 +116,7 @@ public class MapFunk implements SerializableFunction<OSMContribution, MappingMon
         tag_count = tag_count + tags_dels + tags_adds;
       }
     }
-    return new int[]{geom_count, tag_count};
+    return new EditCountEnum(geom_count, tag_count);
   }
 
 }
