@@ -19,7 +19,6 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
@@ -42,7 +41,6 @@ import org.heigit.bigspatialdata.oshdb.api.object.OSMContribution;
 import org.heigit.bigspatialdata.oshdb.osm.OSMType;
 import org.heigit.bigspatialdata.oshdb.util.OSHDBBoundingBox;
 import org.heigit.bigspatialdata.oshdb.util.OSHDBTimestamp;
-import org.heigit.bigspatialdata.oshdb.util.celliterator.ContributionType;
 import org.heigit.bigspatialdata.oshdb.util.time.OSHDBTimestamps;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Polygon;
@@ -96,7 +94,7 @@ public class EventFinder {
         = EventFinder.queryDatabase(bb, oshdb, keytables, polygons);
 
     Map<Integer, ArrayList<MappingEvent>> events = EventFinder
-        .extractEvents(queryDatabase, oshdb, keytables, polygons);
+        .extractEvents(queryDatabase, oshdb, keytables, polygons, bb);
     oshdb.close();
 
     EventFinder.writeOutput(events);
@@ -149,7 +147,8 @@ public class EventFinder {
       SortedMap<OSHDBCombinedIndex<Integer, OSHDBTimestamp>, MappingMonth> months,
       OSHDBDatabase oshdb,
       OSHDBJdbc keytables,
-      Map<Integer, Polygon> polygons)
+      Map<Integer, Polygon> polygons,
+      OSHDBBoundingBox bb)
       throws Exception {
 
     LOG.info("Start processing result");
@@ -299,6 +298,7 @@ public class EventFinder {
                 oshdb,
                 keytables,
                 polygons.get(geom),
+                bb,
                 ts);
           } catch (Exception ex) {
             LOG.error("", ex);
@@ -431,6 +431,7 @@ public class EventFinder {
       OSHDBDatabase oshdb,
       OSHDBJdbc keytables,
       Polygon polygon,
+      OSHDBBoundingBox bb,
       OSHDBTimestamps ts) throws Exception {
 
     LOG.info("Run follow-up query");
@@ -440,6 +441,7 @@ public class EventFinder {
     int result = OSMContributionView
         .on(oshdb)
         .keytables(keytables)
+        .areaOfInterest(bb)
         .areaOfInterest(polygon)
         //Relations are excluded because they hold only little extra information and make this process very slow!
         .osmType(OSMType.NODE, OSMType.WAY)
