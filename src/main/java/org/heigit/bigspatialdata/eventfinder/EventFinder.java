@@ -200,6 +200,7 @@ public class EventFinder {
       }
       ArrayList<WeightedObservedPoint> points = new ArrayList<>();
       int i = 0;
+      int start_time = 0; 
       Iterator<OSHDBTimestamp> values = acc_result.keySet().iterator();
       while (values.hasNext()) {
         OSHDBTimestamp d = values.next();
@@ -209,6 +210,8 @@ public class EventFinder {
         if (aft) {
           WeightedObservedPoint point = new WeightedObservedPoint(1.0, i, v);
           points.add(point);
+        } else {
+            start_time++; 
         }
         i++;
       }
@@ -314,7 +317,8 @@ public class EventFinder {
               coeffs,
               next.getValue().get_type_counts(),
               edited_entities,
-              error);
+              error,
+              start_time+i);
           list.add(e);
         }
         i++;
@@ -371,7 +375,7 @@ public class EventFinder {
     try ( //Write Content
         FileWriter writer = new FileWriter(file)) {
       writer.write(
-          "ID;GeomNr.;EventNr.;Timestamp;Users;Contributions;Change;MaxContributions;EditedEntitities;AverageGeomChanges;AverageTagChanges;Pvalue;Coeffs;TypeCounts\n");
+          "ID;GeomNr.;EventNr.;Timestamp;StartTime;Users;Contributions;Change;MaxContributions;EditedEntitities;AverageGeomChanges;AverageTagChanges;Pvalue;Coeffs;TypeCounts\n");
 
       int[] id = {0};
       String pattern = "yyyy-MM";
@@ -392,6 +396,7 @@ public class EventFinder {
                 + geom + ";"
                 + eventnr[0] + ";"
                 + df.format(e.getTimestap().toDate()) + ";"
+                + e.get_start_time() + ";"
                 + e.getUser_counts().size() + ";"
                 + e.get_contributions() + ";"
                 + e.getDeltakontrib() + ";"
