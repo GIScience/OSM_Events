@@ -23,6 +23,8 @@ public class MappingEvent extends MappingMonth {
   private final HashMap<ContributionType, Integer> type_counts;
 
   private final Double pvalue;
+  
+  private final int start_time;
 
   MappingEvent(
       OSHDBTimestamp key,
@@ -34,7 +36,8 @@ public class MappingEvent extends MappingMonth {
       double[] coeffs,
       HashMap<ContributionType, Integer> type_counts,
       int entitiesChanged,
-      Double pvalue) {
+      Double pvalue,
+      int start_time) { 
     super(
         value.get_contributions(),
         value.getUser_counts(),
@@ -49,6 +52,7 @@ public class MappingEvent extends MappingMonth {
     this.type_counts = type_counts;
     this.entitiesChanged = entitiesChanged;
     this.pvalue = pvalue;
+    this.start_time = start_time;
   }
 
   public float getChange() {
@@ -95,5 +99,8 @@ public class MappingEvent extends MappingMonth {
   public Double get_pvalue() {
     return this.pvalue;
   }
-
+  
+  public int get_start_time() {
+	  return this.start_time;
+  }
 }
