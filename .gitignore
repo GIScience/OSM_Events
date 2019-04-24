@@ -7,3 +7,4 @@ oshdb.properties
 nb-configuration.xml
 *~
 *.csv
+*.sh

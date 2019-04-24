@@ -200,7 +200,7 @@ public class EventFinder {
       }
       ArrayList<WeightedObservedPoint> points = new ArrayList<>();
       int i = 0;
-      int start_time = 0; 
+      int start_time = 0;
       Iterator<OSHDBTimestamp> values = acc_result.keySet().iterator();
       while (values.hasNext()) {
         OSHDBTimestamp d = values.next();
@@ -211,7 +211,7 @@ public class EventFinder {
           WeightedObservedPoint point = new WeightedObservedPoint(1.0, i, v);
           points.add(point);
         } else {
-            start_time++; 
+          start_time++;
         }
         i++;
       }
@@ -307,7 +307,7 @@ public class EventFinder {
             LOG.error("", ex);
           }
           MappingEvent e = new MappingEvent(
-              next.getKey(), 
+              next.getKey(),
               next.getValue(),
               next.getValue().getUser_counts().size(),
               acc_result.get(next.getKey()) - acc_result.get(m_lag),
@@ -318,7 +318,7 @@ public class EventFinder {
               next.getValue().get_type_counts(),
               edited_entities,
               error,
-              start_time+i);
+              start_time + i);
           list.add(e);
         }
         i++;
@@ -330,7 +330,7 @@ public class EventFinder {
     createStarted.stop();
     double toMinutes = (createStarted.getTime() / 1000.0) / 60.0;
 
-    LOG.info("Pricessing Finished, took " + toMinutes + " minutes");
+    LOG.info("Processing finished, took " + toMinutes + " minutes");
     return out;
   }
 
@@ -354,8 +354,6 @@ public class EventFinder {
       geometries.put((Integer) f.getProperties().get("id"),
           gf.createPolygon(gjr.read(f.getGeometry()).getCoordinates()));
     }
-
-    LOG.info("Finished Reading Polygons");
     return geometries;
   }
 
@@ -366,11 +364,7 @@ public class EventFinder {
     File file = new File("target/MappingEvents.csv");
 
     //Create the file
-    if (file.createNewFile()) {
-      System.out.println("File is created!");
-    } else {
-      System.out.println("File already exists.");
-    }
+    file.createNewFile();
 
     try ( //Write Content
         FileWriter writer = new FileWriter(file)) {
@@ -384,10 +378,7 @@ public class EventFinder {
         if (ev.isEmpty()) {
           return;
         }
-        System.out.println("");
-        System.out.println("");
-        System.out.println("Events for geom Nr. " + geom);
-        System.out.println("");
+
         int[] eventnr = {1};
         ev.forEach((MappingEvent e) -> {
           try {
@@ -412,16 +403,6 @@ public class EventFinder {
           } catch (IOException ex) {
             LOG.error("Could not write output.", ex);
           }
-          System.out.println(
-              df.format(e.getTimestap().toDate()) + ";"
-              + e.getUser_counts().size() + ";"
-              + e.get_contributions() + ";"
-              + Collections.max(e.getUser_counts().values()) + ";"
-              + e.getChange() + ";"
-              + e.get_type_counts().values() + ";"
-              + e.getMaxCont() + ";"
-              + Arrays.toString(e.getCoeffs())
-          );
           eventnr[0] += 1;
           id[0] += 1;
         });
@@ -439,9 +420,6 @@ public class EventFinder {
       OSHDBBoundingBox bb,
       OSHDBTimestamps ts) throws Exception {
 
-    LOG.info("Run follow-up query");
-
-    StopWatch createStarted = StopWatch.createStarted();
     // collect contributions by month
     int result = OSMContributionView
         .on(oshdb)
@@ -453,11 +431,6 @@ public class EventFinder {
         .timestamps(ts)
         .groupByEntity()
         .count();
-
-    createStarted.stop();
-    double toMinutes = (createStarted.getTime() / 1000.0) / 60.0;
-
-    LOG.info("Query Finished, took " + toMinutes + " minutes");
 
     return result;
 
