@@ -41,7 +41,9 @@ import org.heigit.bigspatialdata.oshdb.api.object.OSMContribution;
 import org.heigit.bigspatialdata.oshdb.osm.OSMType;
 import org.heigit.bigspatialdata.oshdb.util.OSHDBBoundingBox;
 import org.heigit.bigspatialdata.oshdb.util.OSHDBTimestamp;
+import org.heigit.bigspatialdata.oshdb.util.celliterator.ContributionType;
 import org.heigit.bigspatialdata.oshdb.util.time.OSHDBTimestamps;
+import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Polygon;
 import org.slf4j.LoggerFactory;
@@ -76,7 +78,7 @@ public class EventFinder {
           .getFile());
       oshdb.prefix("global_v4");
       Connection conn = DriverManager.getConnection(
-          "jdbc:postgresql://10.11.12.21:5432/keytables-global_v4", "ohsome", args[0]);
+          "jdbc:postgresql://10.11.12.21:5432/keytables-global_b", "ohsome", args[0]);
       keytables = new OSHDBJdbc(conn);
     }
 
@@ -95,9 +97,17 @@ public class EventFinder {
 
     Map<Integer, ArrayList<MappingEvent>> events = EventFinder
         .extractEvents(queryDatabase, oshdb, keytables, polygons, bb);
+
+    HashMap<OSHDBTimestamp, HashMap<Integer, MappingEvent>> enhanceResult = EventFinder
+        .enhanceResult(oshdb,
+            keytables,
+            polygons,
+            bb,
+            events);
+
     oshdb.close();
 
-    EventFinder.writeOutput(events);
+    EventFinder.writeOutput(enhanceResult);
 
   }
 
@@ -118,7 +128,7 @@ public class EventFinder {
         .areaOfInterest(bb)
         //Relations are excluded because they hold only little extra information and make this process very slow!
         .osmType(OSMType.NODE, OSMType.WAY)
-        .timestamps("2004-01-01", "2019-02-01", OSHDBTimestamps.Interval.MONTHLY)
+        .timestamps("2004-01-01", "2019-04-01", OSHDBTimestamps.Interval.MONTHLY)
         .aggregateByGeometry(polygons)
         .aggregateByTimestamp(OSMContribution::getTimestamp)
         .map(new MapFunk())
@@ -151,7 +161,7 @@ public class EventFinder {
       OSHDBBoundingBox bb)
       throws Exception {
 
-    LOG.info("Start processing result");
+    LOG.info("Start curve-fitting");
     StopWatch createStarted = StopWatch.createStarted();
     // saves objects of type Mapping_Event which stores the month of the event, the number of active mappers, number of contributions, and maximal number of contributions by one user
     final Map<Integer, ArrayList<MappingEvent>> out = new HashMap<>();
@@ -286,26 +296,7 @@ public class EventFinder {
         OSHDBTimestamp m_lag = (OSHDBTimestamp) geomContributions.keySet().toArray()[i - 1];
         Double error = (lagged_errors.get(next.getKey()) - mean) / std; // normalized error
         if (error > 1.644854) { // if error is positively significant at 95% - create event
-          Date date = next.getKey().toDate();
-          date.setMonth(date.getMonth() + 1);
-          TimeZone tz = TimeZone.getTimeZone("UTC");
-          DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'"); // Quoted "Z" to indicate UTC, no timezone offset
-          df.setTimeZone(tz);
-          String nowAsISO = df.format(date);
-          OSHDBTimestamps ts = new OSHDBTimestamps(
-              next.getKey().toString(),
-              nowAsISO);
           int edited_entities = 0;
-          try {
-            edited_entities = EventFinder.queryEntityEdits(
-                oshdb,
-                keytables,
-                polygons.get(geom),
-                bb,
-                ts);
-          } catch (Exception ex) {
-            LOG.error("", ex);
-          }
           MappingEvent e = new MappingEvent(
               next.getKey(),
               next.getValue(),
@@ -330,8 +321,72 @@ public class EventFinder {
     createStarted.stop();
     double toMinutes = (createStarted.getTime() / 1000.0) / 60.0;
 
-    LOG.info("Processing finished, took " + toMinutes + " minutes");
+    LOG.info("Curve-fitting finished, took " + toMinutes + " minutes");
     return out;
+  }
+
+  private static HashMap<OSHDBTimestamp, HashMap<Integer, MappingEvent>> enhanceResult(
+      OSHDBDatabase oshdb,
+      OSHDBJdbc keytables,
+      Map<Integer, Polygon> polygons,
+      OSHDBBoundingBox bb,
+      Map<Integer, ArrayList<MappingEvent>> events) {
+    LOG.info("Start querying entities changed");
+    StopWatch createStarted = StopWatch.createStarted();
+
+    HashMap<OSHDBTimestamp, HashMap<Integer, MappingEvent>> loop = new HashMap<>();
+    HashMap<OSHDBTimestamp, HashMap<Integer, MappingEvent>> result = new HashMap<>();
+
+    //group by month
+    events.forEach((geom, eventies) -> {
+      eventies.forEach(event -> {
+        HashMap<Integer, MappingEvent> input
+            = loop.getOrDefault(event.getTimestap(), new HashMap<>(1));
+        input.put(geom, event);
+        loop.put(event.getTimestap(), input);
+      });
+    });
+    loop.forEach((ts, map) -> {
+      Map<Integer, Integer> edited_entities = new HashMap<>();
+      HashMap<Integer, Polygon> geoms = new HashMap<>();
+      Date date = ts.toDate();
+      date.setMonth(date.getMonth() + 1);
+      TimeZone tz = TimeZone.getTimeZone("UTC");
+      DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'"); // Quoted "Z" to indicate UTC, no timezone offset
+      df.setTimeZone(tz);
+      String nowAsISO = df.format(date);
+      OSHDBTimestamps tss = new OSHDBTimestamps(
+          ts.toString(),
+          nowAsISO);
+      polygons.forEach((id, poly) -> {
+        if (map.containsKey(id)) {
+          geoms.put(id, poly);
+        }
+      });
+      try {
+        edited_entities = EventFinder.queryEntityEdits(
+            oshdb,
+            keytables,
+            geoms,
+            bb,
+            tss);
+      } catch (Exception ex) {
+        LOG.error("", ex);
+      }
+      HashMap<Integer, MappingEvent> output = new HashMap<>();
+      edited_entities.forEach((geom, num) -> {
+        MappingEvent get1 = map.get(geom);
+        get1.setEntitiesChanged(num);
+        output.put(geom, get1);
+      });
+      result.put(ts, output);
+
+    });
+    createStarted.stop();
+    double toMinutes = (createStarted.getTime() / 1000.0) / 60.0;
+
+    LOG.info("Querying entities changed finished, took " + toMinutes + " minutes");
+    return loop;
   }
 
   private static Map<Integer, Polygon> getPolygons() throws IOException {
@@ -357,7 +412,8 @@ public class EventFinder {
     return geometries;
   }
 
-  public static void writeOutput(Map<Integer, ArrayList<MappingEvent>> events) throws IOException {
+  public static void writeOutput(HashMap<OSHDBTimestamp, HashMap<Integer, MappingEvent>> events)
+      throws IOException {
     LOG.info("Save output");
 
     //write output
@@ -374,13 +430,13 @@ public class EventFinder {
       int[] id = {0};
       String pattern = "yyyy-MM";
       DateFormat df = new SimpleDateFormat(pattern);
-      events.forEach((Integer geom, ArrayList<MappingEvent> ev) -> {
-        if (ev.isEmpty()) {
+      events.forEach((ts, eventMap) -> {
+        if (eventMap.isEmpty()) {
           return;
         }
 
         int[] eventnr = {1};
-        ev.forEach((MappingEvent e) -> {
+        eventMap.forEach((geom, e) -> {
           try {
             writer.write(
                 id[0] + ";"
@@ -413,24 +469,57 @@ public class EventFinder {
 
   }
 
-  private static int queryEntityEdits(
+  private static Map<Integer, Integer> queryEntityEdits(
       OSHDBDatabase oshdb,
       OSHDBJdbc keytables,
-      Polygon polygon,
+      HashMap<Integer, Polygon> geoms,
       OSHDBBoundingBox bb,
       OSHDBTimestamps ts) throws Exception {
+    GeometryFactory geometryFactory = new GeometryFactory();
+    Geometry aoi = geometryFactory.createPolygon();
+    Iterator<Entry<Integer, Polygon>> iterator = geoms.entrySet().iterator();
+    while (iterator.hasNext()) {
+      Entry<Integer, Polygon> next = iterator.next();
+      aoi = aoi.union(next.getValue());
+    }
 
     // collect contributions by month
-    int result = OSMContributionView
+    Map<Integer, Integer> result = OSMContributionView
         .on(oshdb)
         .keytables(keytables)
         .areaOfInterest(bb)
-        .areaOfInterest(polygon)
+        .areaOfInterest((Polygon) aoi)
         //Relations are excluded because they hold only little extra information and make this process very slow!
         .osmType(OSMType.NODE, OSMType.WAY)
         .timestamps(ts)
         .groupByEntity()
-        .count();
+        .map(list -> {
+          Map<Integer, Integer> map = new HashMap<>(1);
+          list.forEach(contrib -> {
+            Geometry geometry;
+            if (contrib.getContributionTypes().contains(ContributionType.DELETION)) {
+              geometry = contrib.getGeometryBefore();
+            } else {
+              geometry = contrib.getGeometryAfter();
+            }
+            geoms.forEach((id, geomb) -> {
+              if (geomb.intersects(geometry)) {
+                map.put(id, 1);
+              }
+            });
+          });
+          return map;
+        })
+        .reduce(
+            () -> new HashMap<Integer, Integer>(),
+            (Map<Integer, Integer> map1, Map<Integer, Integer> map2) -> {
+          HashMap<Integer, Integer> hashMap = new HashMap<>();
+          hashMap.putAll(map1);
+          map2.forEach((geo, num) -> {
+            hashMap.merge(geo, num, (a, b) -> a + b);
+          });
+          return hashMap;
+        });
 
     return result;
 

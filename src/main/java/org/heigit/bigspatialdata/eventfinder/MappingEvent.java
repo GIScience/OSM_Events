@@ -6,7 +6,7 @@ import org.heigit.bigspatialdata.oshdb.util.celliterator.ContributionType;
 
 public class MappingEvent extends MappingMonth {
 
-  private final int entitiesChanged;
+  private int entitiesChanged;
 
   private final int users;
 
@@ -65,6 +65,10 @@ public class MappingEvent extends MappingMonth {
 
   public int getEntitiesChanged() {
     return entitiesChanged;
+  }
+
+  public void setEntitiesChanged(int entitiesChanged) {
+    this.entitiesChanged = entitiesChanged;
   }
 
   public OSHDBTimestamp getTimestap() {
