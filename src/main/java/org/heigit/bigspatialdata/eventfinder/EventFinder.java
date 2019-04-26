@@ -30,6 +30,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.commons.lang3.time.StopWatch;
+import org.apache.commons.math3.exception.ConvergenceException;
+import org.apache.commons.math3.exception.TooManyIterationsException;
 import org.apache.commons.math3.fitting.WeightedObservedPoint;
 import org.heigit.bigspatialdata.oshdb.api.db.OSHDBDatabase;
 import org.heigit.bigspatialdata.oshdb.api.db.OSHDBH2;
@@ -99,7 +101,7 @@ public class EventFinder {
     Map<Integer, ArrayList<MappingEvent>> events = EventFinder
         .extractEvents(queryDatabase, oshdb, keytables, polygons, bb);
 
-    HashMap<OSHDBTimestamp, HashMap<Integer, MappingEvent>> enhanceResult = EventFinder
+    Map<OSHDBTimestamp, Map<Integer, MappingEvent>> enhanceResult = EventFinder
         .enhanceResult(oshdb,
             keytables,
             polygons,
@@ -236,30 +238,14 @@ public class EventFinder {
       double[] coeffs = null;
 
       try {
-        //the next 10ish lines are for a timeout
-        final Duration timeout = Duration.ofSeconds(2);
-
-        CompletableFuture<double[]> handler = CompletableFuture.supplyAsync(() -> {
-          LOG.debug(
-              "Starting curvefitting. If this is the last message you see for a while something got stuck!");
-          return fitter.fit(points);
-        });
-        coeffs = handler.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
-      } catch (InterruptedException | ExecutionException ex) {
+        coeffs = fitter.fit(points);
+      } catch (ConvergenceException | TooManyIterationsException ex) {
         try {
           conv_writer.write(geom.toString() + "\n");
         } catch (IOException ex1) {
           LOG.error("", ex1);
         }
         LOG.warn("Geom " + geom + " did not converge!", ex);
-        return;
-      } catch (TimeoutException e) {
-        try {
-          conv_writer.write("timeout;##### " + geom.toString() + "\n");
-        } catch (IOException ex1) {
-          LOG.error("", ex1);
-        }
-        LOG.warn("Geom " + geom + " did timeout!", e);
         return;
       } finally {
         fitting.stop();
@@ -331,14 +317,16 @@ public class EventFinder {
     });
 
     conv_writer.close();
+
     createStarted.stop();
+
     double toMinutes = (createStarted.getTime() / 1000.0) / 60.0;
 
     LOG.info("Curve-fitting finished, took " + toMinutes + " minutes");
     return out;
   }
 
-  private static HashMap<OSHDBTimestamp, HashMap<Integer, MappingEvent>> enhanceResult(
+  private static Map<OSHDBTimestamp, Map<Integer, MappingEvent>> enhanceResult(
       OSHDBDatabase oshdb,
       OSHDBJdbc keytables,
       Map<Integer, Polygon> polygons,
@@ -347,21 +335,24 @@ public class EventFinder {
     LOG.info("Start querying entities changed");
     StopWatch createStarted = StopWatch.createStarted();
 
-    HashMap<OSHDBTimestamp, HashMap<Integer, MappingEvent>> loop = new HashMap<>();
-    HashMap<OSHDBTimestamp, HashMap<Integer, MappingEvent>> result = new HashMap<>();
+    Map<OSHDBTimestamp, Map<Integer, MappingEvent>> loop = new TreeMap<>();
+    Map<OSHDBTimestamp, Map<Integer, MappingEvent>> result = new TreeMap<>();
 
     //group by month
     events.forEach((geom, eventies) -> {
       eventies.forEach(event -> {
-        HashMap<Integer, MappingEvent> input
-            = loop.getOrDefault(event.getTimestap(), new HashMap<>(1));
+        Map<Integer, MappingEvent> input
+            = loop.getOrDefault(event.getTimestap(), new TreeMap<>());
         input.put(geom, event);
         loop.put(event.getTimestap(), input);
       });
     });
+
+    int size = loop.size();
+    int[] i = new int[]{1};
     loop.forEach((ts, map) -> {
       Map<Integer, Integer> edited_entities = new HashMap<>();
-      HashMap<Integer, Polygon> geoms = new HashMap<>();
+      Map<Integer, Polygon> geoms = new HashMap<>();
       Date date = ts.toDate();
       date.setMonth(date.getMonth() + 1);
       TimeZone tz = TimeZone.getTimeZone("UTC");
@@ -393,13 +384,14 @@ public class EventFinder {
         output.put(geom, get1);
       });
       result.put(ts, output);
-
+      LOG.info(i[0] + "/" + size + ": finished timestamp " + ts.toString());
+      i[0] += 1;
     });
     createStarted.stop();
     double toMinutes = (createStarted.getTime() / 1000.0) / 60.0;
 
     LOG.info("Querying entities changed finished, took " + toMinutes + " minutes");
-    return loop;
+    return result;
   }
 
   private static Map<Integer, Polygon> getPolygons() throws IOException {
@@ -425,7 +417,7 @@ public class EventFinder {
     return geometries;
   }
 
-  public static void writeOutput(HashMap<OSHDBTimestamp, HashMap<Integer, MappingEvent>> events)
+  public static void writeOutput(Map<OSHDBTimestamp, Map<Integer, MappingEvent>> events)
       throws IOException {
     LOG.info("Save output");
 
@@ -485,7 +477,7 @@ public class EventFinder {
   private static Map<Integer, Integer> queryEntityEdits(
       OSHDBDatabase oshdb,
       OSHDBJdbc keytables,
-      HashMap<Integer, Polygon> geoms,
+      Map<Integer, Polygon> geoms,
       OSHDBBoundingBox bb,
       OSHDBTimestamps ts) throws Exception {
     GeometryFactory geometryFactory = new GeometryFactory();

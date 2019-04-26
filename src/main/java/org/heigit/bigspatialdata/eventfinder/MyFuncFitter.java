@@ -48,7 +48,8 @@ public class MyFuncFitter extends AbstractCurveFitter {
 		
 		return new LeastSquaresBuilder()
 				.maxEvaluations(Integer.MAX_VALUE)
-				.maxIterations(Integer.MAX_VALUE)
+        //replace with reasonable value
+				.maxIterations(10000)
 				.start(initialGuess)
 				.target(target)
 				.weight(new DiagonalMatrix(weights))
