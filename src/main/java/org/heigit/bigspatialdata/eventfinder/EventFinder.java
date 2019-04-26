@@ -46,6 +46,7 @@ import org.heigit.bigspatialdata.oshdb.util.time.OSHDBTimestamps;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.geom.Polygonal;
 import org.slf4j.LoggerFactory;
 import org.wololo.geojson.Feature;
 import org.wololo.geojson.FeatureCollection;
@@ -173,6 +174,9 @@ public class EventFinder {
     File conv_file = new File("target/Convergence_errors.csv");
     FileWriter conv_writer = new FileWriter(conv_file);
     conv_writer.write("GeomNr.\n");
+    File time_file = new File("target/convTime.csv");
+    FileWriter time_writer = new FileWriter(time_file);
+    time_writer.write("GeomNr.;Time\n");
 
     //iterate
     nest.forEach((Integer geom, SortedMap<OSHDBTimestamp, MappingMonth> geomContributions) -> {
@@ -226,13 +230,14 @@ public class EventFinder {
         i++;
       }
 
+      StopWatch fitting = StopWatch.createStarted();
       // fit curve
       MyFuncFitter fitter = new MyFuncFitter();
       double[] coeffs = null;
 
       try {
         //the next 10ish lines are for a timeout
-        final Duration timeout = Duration.ofSeconds(60);
+        final Duration timeout = Duration.ofSeconds(2);
 
         CompletableFuture<double[]> handler = CompletableFuture.supplyAsync(() -> {
           LOG.debug(
@@ -256,6 +261,14 @@ public class EventFinder {
         }
         LOG.warn("Geom " + geom + " did timeout!", e);
         return;
+      } finally {
+        fitting.stop();
+        try {
+          time_writer.write(geom + ";" + (fitting.getTime() / 1000.0) + "\n");
+          time_writer.flush();
+        } catch (IOException ex) {
+          LOG.error("could not write to file", ex);
+        }
       }
 
       // compute errors
@@ -488,7 +501,7 @@ public class EventFinder {
         .on(oshdb)
         .keytables(keytables)
         .areaOfInterest(bb)
-        .areaOfInterest((Polygon) aoi)
+        .areaOfInterest((Geometry & Polygonal) aoi)
         //Relations are excluded because they hold only little extra information and make this process very slow!
         .osmType(OSMType.NODE, OSMType.WAY)
         .timestamps(ts)
