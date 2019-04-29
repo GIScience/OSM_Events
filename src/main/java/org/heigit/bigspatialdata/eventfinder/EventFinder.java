@@ -12,7 +12,6 @@ import java.sql.DriverManager;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -25,10 +24,6 @@ import java.util.Properties;
 import java.util.SortedMap;
 import java.util.TimeZone;
 import java.util.TreeMap;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import org.apache.commons.lang3.time.StopWatch;
 import org.apache.commons.math3.exception.ConvergenceException;
 import org.apache.commons.math3.exception.TooManyIterationsException;
@@ -77,9 +72,9 @@ public class EventFinder {
           .inMemory(false);
       keytables = (OSHDBJdbc) oshdb;
     } else {
-      oshdb = new OSHDBIgnite(EventFinder.class.getResource("/ignite-prod-ohsome-client.xml")
+      oshdb = new OSHDBIgnite(EventFinder.class.getResource("/ignite-dev-ohsome-client.xml")
           .getFile());
-      oshdb.prefix("global_v4");
+      oshdb.prefix("global_v5");
       Connection conn = DriverManager.getConnection(
           "jdbc:postgresql://10.11.12.21:5432/keytables-global_b", "ohsome", args[0]);
       keytables = new OSHDBJdbc(conn);
@@ -175,7 +170,7 @@ public class EventFinder {
 
     File conv_file = new File("target/Convergence_errors.csv");
     FileWriter conv_writer = new FileWriter(conv_file);
-    conv_writer.write("GeomNr.\n");
+    conv_writer.write("Reason;GeomNr.\n");
     File time_file = new File("target/convTime.csv");
     FileWriter time_writer = new FileWriter(time_file);
     time_writer.write("GeomNr.;Time\n");
@@ -239,14 +234,23 @@ public class EventFinder {
 
       try {
         coeffs = fitter.fit(points);
-      } catch (ConvergenceException | TooManyIterationsException ex) {
+      } catch (ConvergenceException ex) {
         try {
-          conv_writer.write(geom.toString() + "\n");
+          conv_writer.write("ConvergenceError;" + geom.toString() + "\n");
         } catch (IOException ex1) {
           LOG.error("", ex1);
         }
         LOG.warn("Geom " + geom + " did not converge!", ex);
         return;
+      } catch (TooManyIterationsException e) {
+        try {
+          conv_writer.write("TooManyIterations;" + geom.toString() + "\n");
+        } catch (IOException ex1) {
+          LOG.error("", ex1);
+        }
+        LOG.warn("Geom " + geom + " would have needed more then 10'000 Iterations!", e);
+        return;
+
       } finally {
         fitting.stop();
         try {
