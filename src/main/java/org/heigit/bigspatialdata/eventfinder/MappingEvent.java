@@ -42,7 +42,7 @@ public class MappingEvent extends MappingMonth {
         value.get_contributions(),
         value.getUser_counts(),
         value.get_type_counts(),
-        value.get_edit_counts());
+        value.get_edit_counts(), 0, 0);
     this.timestap = key;
     this.users = users;
     this.deltakontrib = delta;
