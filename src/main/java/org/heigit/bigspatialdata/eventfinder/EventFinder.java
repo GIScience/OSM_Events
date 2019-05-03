@@ -79,6 +79,10 @@ public class EventFinder {
           "jdbc:postgresql://10.11.12.21:5432/keytables-global_b", "ohsome", args[0]);
       keytables = new OSHDBJdbc(conn);
     }
+    
+    String filePath = oshdbProperties.getProperty("filePath");
+    
+    Boolean produce = Boolean.valueOf(oshdbProperties.getProperty("produce"));
 
     String[] split = oshdbProperties.getProperty("bbox").split(",");
 
@@ -91,7 +95,15 @@ public class EventFinder {
     Map<Integer, Polygon> polygons = EventFinder.getPolygons();
 
     SortedMap<OSHDBCombinedIndex<Integer, OSHDBTimestamp>, MappingMonth> queryDatabase
-        = EventFinder.queryDatabase(bb, oshdb, keytables, polygons);
+        = new TreeMap<OSHDBCombinedIndex<Integer, OSHDBTimestamp>, MappingMonth>();
+    
+    if (produce) {
+    	System.out.println("reading months file");
+    	queryDatabase = FileActions.read_csv(filePath);
+    } else {
+    	queryDatabase = EventFinder.queryDatabase(bb, oshdb, keytables, polygons);
+    	FileActions.write_csv(filePath, queryDatabase);
+    }
 
     Map<Integer, ArrayList<MappingEvent>> events = EventFinder
         .extractEvents(queryDatabase, oshdb, keytables, polygons, bb);
@@ -300,14 +312,20 @@ public class EventFinder {
         Double error = (lagged_errors.get(next.getKey()) - mean) / std; // normalized error
         if (error > 1.644854) { // if error is positively significant at 95% - create event
           int edited_entities = 0;
+          if (next.getValue().get_users_number()==0) {
+        	  next.getValue().set_users_number(next.getValue().getUser_counts().size());
+          }
+          if (next.getValue().get_max_cont()==0) {
+        	  next.getValue().set_max_cont(Collections.max(next.getValue().getUser_counts().values()));
+          }
           MappingEvent e = new MappingEvent(
               next.getKey(),
               next.getValue(),
-              next.getValue().getUser_counts().size(),
+              next.getValue().get_users_number(),
               acc_result.get(next.getKey()) - acc_result.get(m_lag),
               ((acc_result.get(next.getKey()) - (float) acc_result.get(m_lag))
               / acc_result.get(m_lag)),
-              Collections.max(next.getValue().getUser_counts().values()),
+              next.getValue().get_max_cont(),
               coeffs,
               next.getValue().get_type_counts(),
               edited_entities,
