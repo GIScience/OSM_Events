@@ -471,7 +471,7 @@ public class EventFinder {
                 + eventnr[0] + ";"
                 + df.format(e.getTimestap().toDate()) + ";"
                 + e.get_start_time() + ";"
-                + e.getUser_counts().size() + ";"
+                + e.getUsers() + ";"
                 + e.get_contributions() + ";"
                 + e.getDeltakontrib() + ";"
                 + e.getMaxCont() + ";"
