@@ -53,7 +53,8 @@ public class MapFunk implements SerializableFunction<OSMContribution, MappingMon
           ContributionType.TAG_CHANGE) + 1);
     }
 
-    MappingMonth result = new MappingMonth(count, users_conts, type_counts, counts);
+    MappingMonth result = new MappingMonth(count, users_conts, type_counts, counts,
+    0, 0);
     return result;
   }
 
