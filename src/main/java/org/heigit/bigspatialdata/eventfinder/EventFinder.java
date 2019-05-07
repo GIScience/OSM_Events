@@ -1,6 +1,7 @@
 package org.heigit.bigspatialdata.eventfinder;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
@@ -80,7 +81,7 @@ public class EventFinder {
       keytables = new OSHDBJdbc(conn);
     }
     
-    String filePath = oshdbProperties.getProperty("filePath");
+    String months_file = oshdbProperties.getProperty("months_file");
     
     Boolean produce = Boolean.valueOf(oshdbProperties.getProperty("produce"));
 
@@ -97,24 +98,40 @@ public class EventFinder {
     SortedMap<OSHDBCombinedIndex<Integer, OSHDBTimestamp>, MappingMonth> queryDatabase
         = new TreeMap<OSHDBCombinedIndex<Integer, OSHDBTimestamp>, MappingMonth>();
     
-    if (produce) {
+    String end_date = oshdbProperties.getProperty("end_date");
+    
+    if (!produce) {
     	System.out.println("reading months file");
-    	queryDatabase = FileActions.read_csv(filePath);
+    	QueryOutput qOutput = FileActions.read_csv(months_file);
+    	queryDatabase = qOutput.get_results();
+    	String start_date = qOutput.get_end_month();
+    	SortedMap<OSHDBCombinedIndex<Integer, OSHDBTimestamp>, MappingMonth> queryDatabase2 = 
+    	    EventFinder.queryDatabase(bb, oshdb, keytables, polygons, start_date, end_date);
+    	for (OSHDBCombinedIndex<Integer, OSHDBTimestamp> m: queryDatabase2.keySet()) {
+    		queryDatabase.put(m, queryDatabase2.get(m));
+    	}
+    	FileActions.append_csv(months_file, queryDatabase2, end_date);
     } else {
-    	queryDatabase = EventFinder.queryDatabase(bb, oshdb, keytables, polygons);
-    	FileActions.write_csv(filePath, queryDatabase);
+    	queryDatabase = EventFinder.queryDatabase(bb, oshdb, keytables, polygons, "2004-01-01", end_date);
+    	FileActions.write_csv(months_file, queryDatabase, end_date);
     }
 
     Map<Integer, ArrayList<MappingEvent>> events = EventFinder
         .extractEvents(queryDatabase, oshdb, keytables, polygons, bb);
-
+    
+    String follow_up_file = oshdbProperties.getProperty("follow_up_file");
+    FileWriter file = new FileWriter(follow_up_file);
+    file.write("GeomID,Timestamp,edited_entities\n");
+    file.close();
+    
     Map<OSHDBTimestamp, Map<Integer, MappingEvent>> enhanceResult = EventFinder
         .enhanceResult(oshdb,
             keytables,
             polygons,
             bb,
-            events);
-
+            events,
+            follow_up_file);
+    
     oshdb.close();
 
     EventFinder.writeOutput(enhanceResult);
@@ -125,7 +142,9 @@ public class EventFinder {
       OSHDBBoundingBox bb,
       OSHDBDatabase oshdb,
       OSHDBJdbc keytables,
-      Map<Integer, Polygon> polygons)
+      Map<Integer, Polygon> polygons,
+      String startMonth,
+      String endMonth)
       throws IOException, Exception {
 
     LOG.info("Run Query");
@@ -138,7 +157,7 @@ public class EventFinder {
         .areaOfInterest(bb)
         //Relations are excluded because they hold only little extra information and make this process very slow!
         .osmType(OSMType.NODE, OSMType.WAY)
-        .timestamps("2004-01-01", "2019-04-01", OSHDBTimestamps.Interval.MONTHLY)
+        .timestamps(startMonth, endMonth, OSHDBTimestamps.Interval.MONTHLY)
         .aggregateByGeometry(polygons)
         .aggregateByTimestamp(OSMContribution::getTimestamp)
         .map(new MapFunk())
@@ -353,7 +372,8 @@ public class EventFinder {
       OSHDBJdbc keytables,
       Map<Integer, Polygon> polygons,
       OSHDBBoundingBox bb,
-      Map<Integer, ArrayList<MappingEvent>> events) {
+      Map<Integer, ArrayList<MappingEvent>> events,
+      String filename) {
     LOG.info("Start querying entities changed");
     StopWatch createStarted = StopWatch.createStarted();
 
@@ -399,13 +419,25 @@ public class EventFinder {
       } catch (Exception ex) {
         LOG.error("", ex);
       }
-      HashMap<Integer, MappingEvent> output = new HashMap<>();
-      edited_entities.forEach((geom, num) -> {
-        MappingEvent get1 = map.get(geom);
-        get1.setEntitiesChanged(num);
-        output.put(geom, get1);
-      });
-      result.put(ts, output);
+      
+      try {
+        final BufferedWriter writer = new BufferedWriter(new FileWriter(filename, true));
+        HashMap<Integer, MappingEvent> output = new HashMap<>();
+        edited_entities.forEach((geom, num) -> {
+            MappingEvent get1 = map.get(geom);
+            get1.setEntitiesChanged(num);
+            output.put(geom, get1);
+            try {
+				writer.write(geom+","+ts+","+num+"\n");
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+        });
+        result.put(ts, output);
+        writer.close();
+      } catch (IOException e) {
+		e.printStackTrace();
+	  }
       LOG.info(i[0] + "/" + size + ": finished timestamp " + ts.toString());
       i[0] += 1;
     });
