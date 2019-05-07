@@ -5,12 +5,15 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.text.ParseException;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
@@ -20,9 +23,10 @@ import org.heigit.bigspatialdata.oshdb.util.celliterator.ContributionType;
 
 public class FileActions {
 	
-	public static void write_csv(String filename, SortedMap<OSHDBCombinedIndex<Integer, OSHDBTimestamp>, MappingMonth> results) 
+	public static void write_csv(String filename, SortedMap<OSHDBCombinedIndex<Integer, OSHDBTimestamp>, MappingMonth> results, String end_date) 
 			throws Exception {
 		try (FileWriter file = new FileWriter(filename)) {
+		    file.write(end_date+"\n");
 			file.write("GeomID,date,contributions,users,max_cont,geometryActions,tagActions,creations,deletions,tagChanges,GeometryChanges\n");
 			for (OSHDBCombinedIndex<Integer, OSHDBTimestamp> m:results.keySet()) {
 				String l = "";
@@ -51,14 +55,16 @@ public class FileActions {
 		}
 	}
 	
-	public static SortedMap<OSHDBCombinedIndex<Integer, OSHDBTimestamp>, MappingMonth> read_csv(String filename) 
+	public static QueryOutput read_csv(String filename) 
 			throws NumberFormatException, ParseException {
 		SortedMap<OSHDBCombinedIndex<Integer, OSHDBTimestamp>, MappingMonth> results = 
 				new TreeMap<OSHDBCombinedIndex<Integer, OSHDBTimestamp>, MappingMonth>();
 		
 		BufferedReader reader = null;
+		String start_date = "";
 		try {
 			reader = new BufferedReader(new FileReader(filename));
+			start_date = reader.readLine().split(",")[0];
 			String line = reader.readLine();
 			
 			while ((line = reader.readLine()) != null) {
@@ -100,7 +106,38 @@ public class FileActions {
 			} 
 		}
 		
-		return results;
+		return new QueryOutput(results, start_date);
 	}
-
+	
+	public static void append_csv(String filename, SortedMap<OSHDBCombinedIndex<Integer, OSHDBTimestamp>, MappingMonth> results,
+			String end_date) throws FileNotFoundException {
+		try {
+			List<String> lines = Files.readAllLines(Paths.get(filename));
+			lines.set(0, end_date);
+			for (OSHDBCombinedIndex<Integer, OSHDBTimestamp> m:results.keySet()) {
+				String l = "";
+				if (results.get(m).get_contributions() > 0) {
+					l = m.getFirstIndex().toString() + ","
+							+ m.getSecondIndex().toString() + ","
+							+ results.get(m).get_contributions().toString() + ","
+							+ results.get(m).getUser_counts().size() + ","
+							+ Collections.max(results.get(m).getUser_counts().values()) + ","
+							+ results.get(m).get_edit_counts().get_GEOM() + ","
+							+ results.get(m).get_edit_counts().get_TAG() + ","
+							+ results.get(m).get_type_counts().get(ContributionType.CREATION) + ","
+							+ results.get(m).get_type_counts().get(ContributionType.DELETION).toString() + ","
+							+ results.get(m).get_type_counts().get(ContributionType.TAG_CHANGE).toString() + ","
+							+ results.get(m).get_type_counts().get(ContributionType.GEOMETRY_CHANGE).toString();
+				} else {
+					l = m.getFirstIndex().toString() + ","
+							+ m.getSecondIndex().toString() + ","
+							+ "0,0,0,0,0,0,0,0,0";
+				}
+				lines.add(l);
+			}
+			Files.write(Paths.get(filename), lines);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
 }
