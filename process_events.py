@@ -56,6 +56,7 @@ print('Clustering events...')
 months_df, labels = cluster_label(months_df, 6, 'event', ['Creation_ratio', 'Deletion_ratio', 'Tag_ratio', 'Geom_ratio', 'Max_ratio'])
 labels.sort(key = lambda x:x[-6:] + x[0])
 events = months_df[months_df.event==1]
+events.to_csv('outputs/OSM_large_scale_events.csv')
 
 # create table with clusters' means and stds (Table 1)
 print('Creating cluster charateristics table...')
