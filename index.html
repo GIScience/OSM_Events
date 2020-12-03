@@ -1,0 +1,268 @@
+<html>
+<head>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A==" crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA==" crossorigin=""></script>
+<script>
+// https://github.com/mlevans/leaflet-hash/blob/master/leaflet-hash.js
+(function(window) {
+	var HAS_HASHCHANGE = (function() {
+		var doc_mode = window.documentMode;
+		return ('onhashchange' in window) &&
+			(doc_mode === undefined || doc_mode > 7);
+	})();
+
+	L.Hash = function(map) {
+		this.onHashChange = L.Util.bind(this.onHashChange, this);
+
+		if (map) {
+			this.init(map);
+		}
+	};
+
+	L.Hash.parseHash = function(hash) {
+		if(hash.indexOf('#') === 0) {
+			hash = hash.substr(1);
+		}
+		var args = hash.split("/");
+		if (args.length == 3) {
+			var zoom = parseInt(args[0], 10),
+			lat = parseFloat(args[1]),
+			lon = parseFloat(args[2]);
+			if (isNaN(zoom) || isNaN(lat) || isNaN(lon)) {
+				return false;
+			} else {
+				return {
+					center: new L.LatLng(lat, lon),
+					zoom: zoom
+				};
+			}
+		} else {
+			return false;
+		}
+	};
+
+	L.Hash.formatHash = function(map) {
+		var center = map.getCenter(),
+		    zoom = map.getZoom(),
+		    precision = Math.max(0, Math.ceil(Math.log(zoom) / Math.LN2));
+
+		return "#" + [zoom,
+			center.lat.toFixed(precision),
+			center.lng.toFixed(precision)
+		].join("/");
+	},
+
+	L.Hash.prototype = {
+		map: null,
+		lastHash: null,
+
+		parseHash: L.Hash.parseHash,
+		formatHash: L.Hash.formatHash,
+
+		init: function(map) {
+			this.map = map;
+
+			// reset the hash
+			this.lastHash = null;
+			this.onHashChange();
+
+			if (!this.isListening) {
+				this.startListening();
+			}
+		},
+
+		removeFrom: function(map) {
+			if (this.changeTimeout) {
+				clearTimeout(this.changeTimeout);
+			}
+
+			if (this.isListening) {
+				this.stopListening();
+			}
+
+			this.map = null;
+		},
+
+		onMapMove: function() {
+			// bail if we're moving the map (updating from a hash),
+			// or if the map is not yet loaded
+
+			if (this.movingMap || !this.map._loaded) {
+				return false;
+			}
+
+			var hash = this.formatHash(this.map);
+			if (this.lastHash != hash) {
+				location.replace(hash);
+				this.lastHash = hash;
+			}
+		},
+
+		movingMap: false,
+		update: function() {
+			var hash = location.hash;
+			if (hash === this.lastHash) {
+				return;
+			}
+			var parsed = this.parseHash(hash);
+			if (parsed) {
+				this.movingMap = true;
+
+				this.map.setView(parsed.center, parsed.zoom);
+
+				this.movingMap = false;
+			} else {
+				this.onMapMove(this.map);
+			}
+		},
+
+		// defer hash change updates every 100ms
+		changeDefer: 100,
+		changeTimeout: null,
+		onHashChange: function() {
+			// throttle calls to update() so that they only happen every
+			// `changeDefer` ms
+			if (!this.changeTimeout) {
+				var that = this;
+				this.changeTimeout = setTimeout(function() {
+					that.update();
+					that.changeTimeout = null;
+				}, this.changeDefer);
+			}
+		},
+
+		isListening: false,
+		hashChangeInterval: null,
+		startListening: function() {
+			this.map.on("moveend", this.onMapMove, this);
+
+			if (HAS_HASHCHANGE) {
+				L.DomEvent.addListener(window, "hashchange", this.onHashChange);
+			} else {
+				clearInterval(this.hashChangeInterval);
+				this.hashChangeInterval = setInterval(this.onHashChange, 50);
+			}
+			this.isListening = true;
+		},
+
+		stopListening: function() {
+			this.map.off("moveend", this.onMapMove, this);
+
+			if (HAS_HASHCHANGE) {
+				L.DomEvent.removeListener(window, "hashchange", this.onHashChange);
+			} else {
+				clearInterval(this.hashChangeInterval);
+			}
+			this.isListening = false;
+		}
+	};
+	L.hash = function(map) {
+		return new L.Hash(map);
+	};
+	L.Map.prototype.addHash = function() {
+		this._hash = L.hash(this);
+	};
+	L.Map.prototype.removeHash = function() {
+		this._hash.removeFrom();
+	};
+})(window);
+</script>
+<style>
+.leaflet-tile-pane img {
+  filter: grayscale(1);
+}
+</style>
+</head>
+<body>
+<div id="map" style="position:absolute; left:0; top:0; right:0; bottom:0;"></div>
+<script>
+const map = L.map('map').fitWorld();
+const baseLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: 'Base map and data from <a href="https://www.openstreetmap.org/copyright">OpenStreetMap and OpenStreetMap Foundation</a>',
+  maxZoom: 19
+}).addTo(map);
+new L.Hash(map);
+
+const eventTypes = {
+  'Local knowledge event': { max: 100, color: "#e41a1c" },
+  'Remote event': { max: 100, color: "#377eb8" },
+  'Early import': { max: 100, color: "#4daf4a" },
+  'Geometry import': { max: 100, color: "#984ea3" },
+  'Late import': { max: 100, color: "#ff7f00" },
+  'Tag import': { max: 100, color: "#ffff33" },
+}
+const dataLayers = {};
+Object.keys(eventTypes).forEach(type => {
+  dataLayers[type] = L.geoJSON(undefined, {
+    style: feature => ({
+      weight: 0,
+      fillColor: eventTypes[type].color,
+      fillOpacity: feature.properties['events'][type] / eventTypes[type].max
+    }),
+    smoothFactor: 0
+  });
+});
+L.control.layers(dataLayers, {}, {
+  collapsed: false
+}).addTo(map);
+
+Promise.all([
+  fetch('./grid_20000_id.geojson').then(data => data.json()),
+  fetch('./event_weights_by_cell.csv').then(data => data.text())
+]).then(data => {
+  const grid = data[0];
+  const valuesMap = {};
+  data[1].split('\n').slice(1, -1).map(l => l.split(',')).forEach(l => {
+    valuesMap[l[0]] = {
+      'Local knowledge event': l[1],
+      'Remote event': l[2],
+      'Early import': l[3],
+      'Geometry import': l[4],
+      'Late import': l[5],
+      'Tag import': l[6]
+    };
+  });
+  grid.features.forEach(f => {
+    f.properties['events'] = valuesMap[f.properties.id] || {};
+  });
+  Object.values(dataLayers).forEach(dataLayer => dataLayer.addData(grid));
+});
+
+L.Control.Legend = L.Control.extend({
+  onAdd: function(map) {
+    const scale = L.DomUtil.create('div');
+
+    scale.style.width = '200px';
+    scale.style.height = '18px';
+    scale.style.border = '4px solid #ccc';
+    scale.style.borderRadius = '8px';
+    scale.style.pointerEvents = 'none';
+
+    const leftLabel = L.DomUtil.create('span');
+    leftLabel.textContent = '0%';
+    leftLabel.style.position = 'absolute';
+    leftLabel.style.left = '3px';
+    scale.appendChild(leftLabel);
+    const rightLabel = L.DomUtil.create('span');
+    rightLabel.textContent = '100%';
+    rightLabel.style.position = 'absolute';
+    rightLabel.style.right = '3px';
+    scale.appendChild(rightLabel);
+
+    map.on('baselayerchange', l => {
+      const color = eventTypes[l.name].color;
+      scale.style.background = 'linear-gradient(90deg, ' +
+        'rgba(0,0,0,0) 0%, ' +
+        color + ' 100%)';
+    });
+
+    return scale;
+  }
+});
+L.control.legend = function(opts) {
+  return new L.Control.Legend(opts);
+}
+L.control.legend({ position: 'bottomleft' }).addTo(map);
+
+dataLayers['Early import'].addTo(map);
+</script>
