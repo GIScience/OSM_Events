@@ -202,9 +202,6 @@ Object.keys(eventTypes).forEach(type => {
     smoothFactor: 0
   });
 });
-L.control.layers(dataLayers, {}, {
-  collapsed: false
-}).addTo(map);
 
 Promise.all([
   fetch('./grid_20000_id.geojson').then(data => data.json()),
@@ -263,6 +260,11 @@ L.control.legend = function(opts) {
   return new L.Control.Legend(opts);
 }
 L.control.legend({ position: 'bottomleft' }).addTo(map);
+
+L.control.layers(dataLayers, {}, {
+  position: 'bottomleft',
+  collapsed: false
+}).addTo(map);
 
 dataLayers['Early import'].addTo(map);
 </script>
