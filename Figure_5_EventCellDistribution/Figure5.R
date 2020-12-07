@@ -72,7 +72,7 @@ for(name in names(cells)[3:8]){
                    style.args =list(dataPrecision=0),
                    showNA=FALSE,
                    legend.is.portrait=FALSE,
-                   palette = c('#b3abd198','#e66101ff'),  #alpha not working :-( https://github.com/mtennekes/tmap/issues/241
+                   palette = c('#bdbdbd','#e66101ff'),  #alpha not working :-( https://github.com/mtennekes/tmap/issues/241
                    alpha=0.8,
                    title="")
   
