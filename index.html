@@ -197,7 +197,7 @@ Object.keys(eventTypes).forEach(type => {
     style: feature => ({
       weight: 0,
       fillColor: eventTypes[type].color,
-      fillOpacity: feature.properties['events'][type] / eventTypes[type].max
+      fillOpacity: (feature.properties['events'][type] || 0) / eventTypes[type].max
     }),
     smoothFactor: 0
   });
