@@ -17,6 +17,6 @@ for (d in poly_d) {
   mo <- nlsLM(d2$contributions~A+B/(1+exp(-C*(d2$idx-D))), data=d2, control=nls.lm.control(maxiter=1000), start=list(A=1, B=max(d2$contributions), C=0.05, D=100))
   coeffs = coefficients(mo)
   d2$pred <- coeffs[1] + coeffs[2] / (1+exp(-coeffs[3]*(d2$idx-coeffs[4])))
-  fn <- paste("./data/predictions/z",toString(d2$GeomID[1]), ".csv", sep="")
+  fn <- paste("./predictions/z",toString(d2$GeomID[1]), ".csv", sep="")
   write.csv(d2[c("idx", "time_double", "contributions", "pred")], fn, row.names = TRUE)
 }
