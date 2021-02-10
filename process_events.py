@@ -11,10 +11,10 @@ from event_effects import compute_effects
 from next_events import compute_event_prob
 
 print('Identifying events...')
-events, rmses = identify('data/predictions', 'outputs') # identify events and produce NRMSE (Figure 2)
+events, rmses = identify('predictions', 'outputs') # identify events and produce NRMSE (Figure 2)
 
 print('Processing data...')
-months_df = pd.read_csv('data/eventident.output.csv') # OSHDB output - data for each cell and month
+months_df = pd.read_csv('extraction/target/months_results.csv') # OSHDB output - data for each cell and month
 months_df['date'] = pd.to_datetime(months_df['date']) # convert date to datetime
 months_df = pd.merge(months_df, events, on=['GeomID', 'date'], how='outer') # join events
 months_df.event = months_df.event.replace(np.nan, 0) # set non events to 0
@@ -76,7 +76,7 @@ event_totals = events.groupby(['label', 'date']).contributions.sum()
 draw_time_figure(month_totals, event_totals, labels, 'outputs')
 del month_totals, event_totals
 
-# create data for event weight maps (Figure 5)
+# create data for event weight maps (Figure 5 and webmap)
 print('Creating cluster weights by cell table...')
 events_by_cell = events.groupby(['GeomID', 'label']).contributions.sum().unstack(level=1)
 events_by_cell[pd.isnull(events_by_cell)] = 0
