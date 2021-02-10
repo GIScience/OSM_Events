@@ -3,14 +3,14 @@
 The EventFinder script: 
 1. Configures a connection to an oshdb data file (local or on a cluster).
 2. Executes a query used for collecting the data required for the event identification procedure, which include for each polygon and month:
-    a. ID of the cell
-    b. timestamp
-    c. number of edit operations*
-    d. number of active mappers
-    e. number of contributions by type
-    f. number of geometry operations
-    g. number of tagging operationns
-    h. number of operations by the most active mapper (maximal number of operations by one user)
+    1. ID of the cell
+    2. timestamp
+    3. number of edit operations<sup>[1](#myfootnote1)</sup>
+    4. number of active mappers
+    5. number of contributions by type
+    6. number of geometry operations
+    7. number of tagging operationns
+    8. number of operations by the most active mapper (maximal number of operations by one user)
 3. Writes the output to a file
 
 The process requires a file named oshdb.properties.bin to be placed in the target/classes folder (see example in the repository).
@@ -23,4 +23,4 @@ This file should include the following entries:
 6. produce - boolean value specificing whether previous results exist (false) or whether they should be produced (true)
 7. end_date - a timestamp entry for the database queries, specifying the end of the time range
 
-* Edit operations count the number of estimated actions included in each contribution. For creations, this is no. nodes added + no. tags added. For deletions, this is just 1. For (tag/geometry) edits this is the no. tags added + no. tags removed + no. node added + np. nodes deleted. 
+<a name="myfootnote1">1</a>: Edit operations count the number of estimated actions included in each contribution. For creations, this is no. nodes added + no. tags added. For deletions, this is just 1. For (tag/geometry) edits this is the no. tags added + no. tags removed + no. node added + np. nodes deleted. 
