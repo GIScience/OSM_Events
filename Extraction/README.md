@@ -1,21 +1,19 @@
-# Event Identification
+# Data Collection
 
-Identifying large scale events in OSM
+The EventFinder script: 
+1. Configures a connection to an oshdb data file (local or on a cluster).
+2. Executes a query used for collecting the data required for the event identification procedure, which include for each polygon and month:
+    1. ID of the cell
+    2. timestamp
+    3. number of edit operations<sup>[1](#myfootnote1)</sup>
+    4. number of active mappers
+    5. number of contributions by type
+    6. number of geometry operations
+    7. number of tagging operationns
+    8. number of operations by the most active mapper (maximal number of operations by one user)
+3. Writes the output to a file
 
-Procedure:
-1. Query 1: Using a custom grid, count the monthly total number of contribution actions (node + tags changes) for each cell
-2. Event identification:
-    a. Create an accumulative time series data for each polygon
-    b. Fit a logistic curve to each time series
-    c. Compute errors and normalize
-    d. Identify positive and significant errors as events
-    e. For each event save output (number of users, contributions, contributions by types, etc.)
-3. Query 2: for each event, count the number of edited entities during that month
-4. Produce outputs:
-    a. Compute the number of geometry and tag actions per entity per event and add to output
-    b. Write output to file
-
-The process requires a file named oshdb.properties.bin to be placed in the target/classes folder.
+The process requires a file named oshdb.properties.bin to be placed in the target/classes folder (see example in the repository).
 This file should include the following entries:
 1. oshdb - path to the oshdb data file
 2. keytables - path to the keytables file (probably the same as 1)
@@ -24,4 +22,7 @@ This file should include the following entries:
 5. months_file - path to intermediate results file for query 1 (to be created/updated, see 6)
 6. produce - boolean value specificing whether previous results exist (false) or whether they should be produced (true)
 7. end_date - a timestamp entry for the database queries, specifying the end of the time range
-8. follow_up - path to intermediate results file for query 2 
+
+
+
+<a name="myfootnote1">1</a>: *Edit operations count the number of estimated actions included in each contribution. For creations, this is no. nodes added + no. tags added. For deletions, this is just 1. For (tag/geometry) edits this is the no. tags added + no. tags removed + no. node added + np. nodes deleted.*
