@@ -1,21 +1,9 @@
 package org.heigit.bigspatialdata.eventfinder;
 
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.text.ParseException;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
 import java.util.SortedMap;
-import java.util.TreeMap;
 
 import org.heigit.bigspatialdata.oshdb.api.generic.OSHDBCombinedIndex;
 import org.heigit.bigspatialdata.oshdb.util.OSHDBTimestamp;
