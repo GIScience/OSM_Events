@@ -23,4 +23,6 @@ This file should include the following entries:
 6. produce - boolean value specificing whether previous results exist (false) or whether they should be produced (true)
 7. end_date - a timestamp entry for the database queries, specifying the end of the time range
 
-<a name="myfootnote1">1</a>: Edit operations count the number of estimated actions included in each contribution. For creations, this is no. nodes added + no. tags added. For deletions, this is just 1. For (tag/geometry) edits this is the no. tags added + no. tags removed + no. node added + np. nodes deleted. 
+
+
+<a name="myfootnote1">1</a>: *Edit operations count the number of estimated actions included in each contribution. For creations, this is no. nodes added + no. tags added. For deletions, this is just 1. For (tag/geometry) edits this is the no. tags added + no. tags removed + no. node added + np. nodes deleted.*
