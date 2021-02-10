@@ -3,7 +3,7 @@ require(dplyr)
 script.dir <- dirname(sys.frame(1)$ofile)
 wd <- script.dir
 setwd(wd)
-main_df <- read.csv('./extraction/target/months_result.csv')
+main_df <- read.csv('./extraction/target/months_results.csv')
 poly_d <- split(main_df, main_df$GeomID)
 
 for (d in poly_d) {
