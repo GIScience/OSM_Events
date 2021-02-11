@@ -57,7 +57,8 @@ public class MapFunk implements SerializableFunction<OSMContribution, MappingMon
     0, 0);
     return result;
   }
-
+  
+  // count number of edit operations - number of geometries added/changed and number of tags added/changed
   public static EditCountEnum getGeomTagCount(OSMContribution c) {
     int geom_count = 0;
     int tag_count = 0;

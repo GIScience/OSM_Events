@@ -1,1 +1,10 @@
-/target/
+# maven generated target folder
+**/target/
+nbactions.xml
+oshdb.properties
+.project
+.classpath
+nb-configuration.xml
+*~
+*.csv
+**/.metadata/
