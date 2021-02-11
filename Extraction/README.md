@@ -13,7 +13,7 @@ The EventFinder script:
     8. number of operations by the most active mapper (maximal number of operations by one user)
 3. Writes the output to a file
 
-The process requires a file named oshdb.properties.bin to be placed in the target/classes folder (see example in the repository).
+The process requires a file named oshdb.properties.bin to be placed in the src/main/resources folder at build time (see example-oshdb.properties in the repository).
 This file should include the following entries:
 1. oshdb - path to the oshdb data file
 2. keytables - path to the keytables file (probably the same as 1)
