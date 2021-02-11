@@ -3,7 +3,10 @@ require(dplyr)
 script.dir <- dirname(sys.frame(1)$ofile)
 wd <- script.dir
 setwd(wd)
-main_df <- read.csv('./extraction/target/months_results.csv')
+pdir <- dirname(script.dir)
+dir.create(file.path(pdir, "Outputs"), showWarnings = FALSE)
+dir.create(file.path(paste(pdir, "/Outputs", sep=""), "Predictions"), showWarnings = FALSE)
+main_df <- read.csv(paste(pdir, '/extraction/target/months_results.csv', sep=''))
 poly_d <- split(main_df, main_df$GeomID)
 
 for (d in poly_d) {
@@ -17,6 +20,6 @@ for (d in poly_d) {
   mo <- nlsLM(d2$contributions~A+B/(1+exp(-C*(d2$idx-D))), data=d2, control=nls.lm.control(maxiter=1000), start=list(A=1, B=max(d2$contributions), C=0.05, D=100))
   coeffs = coefficients(mo)
   d2$pred <- coeffs[1] + coeffs[2] / (1+exp(-coeffs[3]*(d2$idx-coeffs[4])))
-  fn <- paste("./predictions/z",toString(d2$GeomID[1]), ".csv", sep="")
+  fn <- paste(pdir, "/outputs/predictions/z",toString(d2$GeomID[1]), ".csv", sep="")
   write.csv(d2[c("idx", "time_double", "contributions", "pred")], fn, row.names = TRUE)
 }

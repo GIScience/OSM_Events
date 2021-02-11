@@ -14,7 +14,7 @@ import pathlib
 pdir = str(pathlib.Path(pathlib.Path().parent.absolute()).parent)
 
 print('Identifying events...')
-events, rmses = identify(pdir+'/curveFitting/predictions', pdir+'/outputs') # identify events and produce NRMSE (Figure 2)
+events, rmses = identify(pdir+'/outputs/predictions', pdir+'/outputs') # identify events and produce NRMSE (Figure 2)
 
 print('Processing data...')
 months_df = pd.read_csv(pdir+'/Extraction/target/months_results.csv') # OSHDB output - data for each cell and month
