@@ -1,5 +1,6 @@
 # maven generated target folder
 **/target/
+**/predictions/
 nbactions.xml
 oshdb.properties
 .project
