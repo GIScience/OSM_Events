@@ -20,8 +20,7 @@ This file should include the following entries:
 3. type - type of query (H2 for local/other for cluster)
 4. bbox - bounding box for queries (list of four coordinates seperated by commas)
 5. months_file - path to intermediate results file for query 1 (to be created/updated, see 6)
-6. produce - boolean value specificing whether previous results exist (false) or whether they should be produced (true)
-7. end_date - a timestamp entry for the database queries, specifying the end of the time range
+6. end_date - a timestamp entry for the database queries, specifying the end of the time range
 
 
 
