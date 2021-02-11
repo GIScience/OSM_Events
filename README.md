@@ -1,4 +1,5 @@
-# OSM_Events
+# OSM Events
+
 Procedures for data extraction, analysis, and visualization for the paper 
 “An Analysis of the Spatial and Temporal Distribution of Large-Scale Data Production Events in OpenStreetMap” (in press).
 
@@ -17,3 +18,5 @@ This repository consists of three sections:
     9. Creating a table depicting the frequency with which the first event in a cell is a followed by events of all type, by type of the first event ([next_events.py](https://github.com/GIScience/OSM_Events/blob/main/next_events.py))
 
     This main script also processes and cleans the data, and [produces a file containing the weight of each event type for each cell](https://github.com/GIScience/OSM_Events/blob/main/process_events.py#L79-L87), later used to produce static and dynamic online maps. The outputs of all of the above are stored under the Outputs folder.
+
+The [branch `gh-pages`](https://github.com/GIScience/OSM_Events/tree/gh-pages) contains an interactive visualization of the detected events, which can be accessed at the following link: https://giscience.github.io/OSM_Events/
