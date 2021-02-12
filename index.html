@@ -263,12 +263,22 @@ Object.keys(eventTypes).forEach(type => {
   });
 });
 
+const borderLayer = L.geoJSON(undefined, {
+    style: {
+        color: "#000000",
+        fillOpacity: 0,
+        opacity:0.3,
+        weight:1
+    }
+});
+
 Promise.all([
   fetch('./grid_20000_id.geojson').then(data => data.json()),
   fetch('./event_weights_by_cell.csv').then(data => data.text()),
   fetch('./globalNone.geojson').then(data => data.json()),
 ]).then(data => {
   const grid = data[0];
+            borderLayer.addData(data);   
 	const global = data[2];
 	addGlobalNone(global);
   const valuesMap = {};
@@ -363,7 +373,7 @@ L.control.layers(dataLayers, {}, {
 L.control.layers({
   'OpenStreetMap Carto': osmBaseLayer,
   'OSM node density': nodeDensityBaseLayer
-}, {}, {
+}, { "show grid borders" : borderLayer }, {
   position: 'bottomleft',
   collapsed: true
 }).addTo(map);
