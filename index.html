@@ -249,6 +249,7 @@ const eventTypes = {
 const dataLayers = {};
 Object.keys(eventTypes).forEach(type => {
   dataLayers[type] = L.geoJSON(undefined, {
+		attribution: 'Overlay: Results from the Paper <span title="“An Analysis of the Spatial and Temporal Distribution of Large-Scale Data Production Events in OpenStreetMap”">“[…] Large-Scale Data Production Events in OpenStreetMap”</span>',
     style: feature => ({
       weight: 0,
       fillColor: eventTypes[type].color,
