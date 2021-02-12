@@ -303,6 +303,12 @@ L.Control.Legend = L.Control.extend({
 		title.style.margin = '0 0 6px 0';
 		container.appendChild(title);
 
+    const intro = L.DomUtil.create('div');
+    intro.style.maxWidth = '20em';
+    intro.innerHTML = '<p>Supplementary Data and Visualizations for the Paper “<i>An Analysis of the Spatial and Temporal Distribution of Large-Scale Data Production Events in OpenStreetMap</i>” by A. Yair Grinberger¹, Moritz Schott², Martin Raifer³ and Alexander Zipf²³. See <a href="https://github.com/GIScience/OSM_Events#readme">the project readme</a> for more information</a>.</p>'
+      + '<span style="font-size:75%">¹Deparment of Geography, The Hebrew University of Jerusalem, Israel; ²GIScience research group, Institute of Geography, Heidelberg University, Germany; Heidelberg Institute for Geoinformation Technology, Germany</span></p>';
+    container.appendChild(intro);
+
     const scale = L.DomUtil.create('div');
 		scale.style.position = 'relative';
     scale.style.width = '200px';
