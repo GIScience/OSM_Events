@@ -288,6 +288,21 @@ Promise.all([
   Object.values(dataLayers).forEach(dataLayer => dataLayer.addData(grid));
 });
 
+borderLayer=L.geoJSON(undefined,{
+    style:{
+        color: "#000000",
+        fillOpacity: 0,
+        opacity:0.3,
+        weight:1
+    }
+}).addTo(map);
+
+fetch('./grid_20000_id.geojson')
+        .then(data => data.json())
+        .then(data=>{
+            borderLayer.addData(data);   
+});
+
 L.Control.Legend = L.Control.extend({
   onAdd: function(map) {
     const container = L.DomUtil.create('div');
@@ -355,7 +370,7 @@ L.control.legend = function(opts) {
 }
 L.control.legend({ position: 'bottomleft' }).addTo(map);
 
-L.control.layers(dataLayers, {}, {
+L.control.layers(dataLayers, {"Grid Borders":borderLayer}, {
   position: 'bottomleft',
   collapsed: false
 }).addTo(map);
