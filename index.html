@@ -278,7 +278,7 @@ Promise.all([
   fetch('./globalNone.geojson').then(data => data.json()),
 ]).then(data => {
   const grid = data[0];
-  borderLayer.addData(data);
+  borderLayer.addData(grid);
   const global = data[2];
   addGlobalNone(global);
   const valuesMap = {};
