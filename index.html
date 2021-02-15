@@ -278,7 +278,7 @@ Promise.all([
   fetch('./globalNone.geojson').then(data => data.json()),
 ]).then(data => {
   const grid = data[0];
-            borderLayer.addData(data);   
+            borderLayer.addData(data);
 	const global = data[2];
 	addGlobalNone(global);
   const valuesMap = {};
@@ -302,9 +302,10 @@ L.Control.Legend = L.Control.extend({
   onAdd: function(map) {
     const container = L.DomUtil.create('div');
 		container.style.backgroundColor = 'white';
-    container.style.pointerEvents = 'none';
+    //container.style.pointerEvents = 'none';
     container.style.padding = '4px 8px';
 		container.className = 'leaflet-control-layers';
+		container.onMousedown = () => {};
 
 		const title = L.DomUtil.create('h2');
 		title.textContent = 'Legend';
