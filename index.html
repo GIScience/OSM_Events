@@ -197,49 +197,49 @@ const nodeDensityBaseLayer = L.tileLayer('https://s3-eu-west-1.amazonaws.com/osm
 new L.Hash(map);
 
 function addGlobalNone(data) {
-	const zoomBreak = 4;
-	const stripes1 = new L.StripePattern({
-		weight: 1,
-		spaceWeight: 6,
-		color: "#000",
-		spaceColor: "#eeeeee",
-		opacity: 0.25,
-		spaceOpacity: 0.2,
-		height: 7,
-		angle: -45
-	});
-	stripes1.addTo(map);
-	const stripes2 = new L.StripePattern({
-		weight: 1,
-		spaceWeight: 4,
-		color: "#000",
-		spaceColor: "#eeeeee",
-		opacity: 0.5,
-		spaceOpacity: 0.2,
-		height: 5,
-		angle: -45
-	});
-	stripes2.addTo(map);
-	const stripeLayer = L.geoJSON(data, {
-		style: {
-			weight: 0,
-			fillPattern: map.getZoom() > zoomBreak ? stripes2 : stripes1,
-			fillOpacity: 1
-		}
-	}).addTo(map);
-	var mapZoom = map.getZoom();
-	map.on('zoomstart', function () {
-		mapZoom = map.getZoom();
-	});
-	map.on('zoomend', function (e) {
-	  const currentZoom = map.getZoom();
-	  if (mapZoom > zoomBreak && currentZoom <= zoomBreak) {
-	    stripeLayer.setStyle({ fillPattern: stripes1 });
-	  } else if (mapZoom <= zoomBreak && currentZoom > zoomBreak) {
-	    stripeLayer.setStyle({ fillPattern: stripes2 });
-	  }
-		mapZoom = map.getZoom();
-	});
+  const zoomBreak = 4;
+  const stripes1 = new L.StripePattern({
+    weight: 1,
+    spaceWeight: 6,
+    color: "#000",
+    spaceColor: "#eeeeee",
+    opacity: 0.25,
+    spaceOpacity: 0.2,
+    height: 7,
+    angle: -45
+  });
+  stripes1.addTo(map);
+  const stripes2 = new L.StripePattern({
+    weight: 1,
+    spaceWeight: 4,
+    color: "#000",
+    spaceColor: "#eeeeee",
+    opacity: 0.5,
+    spaceOpacity: 0.2,
+    height: 5,
+    angle: -45
+  });
+  stripes2.addTo(map);
+  const stripeLayer = L.geoJSON(data, {
+    style: {
+      weight: 0,
+      fillPattern: map.getZoom() > zoomBreak ? stripes2 : stripes1,
+      fillOpacity: 1
+    }
+  }).addTo(map);
+  var mapZoom = map.getZoom();
+  map.on('zoomstart', function () {
+    mapZoom = map.getZoom();
+  });
+  map.on('zoomend', function (e) {
+    const currentZoom = map.getZoom();
+    if (mapZoom > zoomBreak && currentZoom <= zoomBreak) {
+      stripeLayer.setStyle({ fillPattern: stripes1 });
+    } else if (mapZoom <= zoomBreak && currentZoom > zoomBreak) {
+      stripeLayer.setStyle({ fillPattern: stripes2 });
+    }
+    mapZoom = map.getZoom();
+  });
 }
 
 const eventTypes = {
@@ -253,7 +253,7 @@ const eventTypes = {
 const dataLayers = {};
 Object.keys(eventTypes).forEach(type => {
   dataLayers[type] = L.geoJSON(undefined, {
-		attribution: 'Overlay: Results from the Paper <span title="“An Analysis of the Spatial and Temporal Distribution of Large-Scale Data Production Events in OpenStreetMap”">“[…] Large-Scale Data Production Events in OpenStreetMap”</span>',
+  attribution: 'Overlay: Results from the Paper <span title="“An Analysis of the Spatial and Temporal Distribution of Large-Scale Data Production Events in OpenStreetMap”">“[…] Large-Scale Data Production Events in OpenStreetMap”</span>',
     style: feature => ({
       weight: 0,
       fillColor: eventTypes[type].color,
@@ -264,12 +264,12 @@ Object.keys(eventTypes).forEach(type => {
 });
 
 const borderLayer = L.geoJSON(undefined, {
-    style: {
-        color: "#000000",
-        fillOpacity: 0,
-        opacity:0.3,
-        weight:1
-    }
+  style: {
+    color: "#000000",
+    fillOpacity: 0,
+    opacity:0.3,
+    weight:1
+  }
 });
 
 Promise.all([
@@ -278,9 +278,9 @@ Promise.all([
   fetch('./globalNone.geojson').then(data => data.json()),
 ]).then(data => {
   const grid = data[0];
-            borderLayer.addData(data);
-	const global = data[2];
-	addGlobalNone(global);
+  borderLayer.addData(grid);
+  const global = data[2];
+  addGlobalNone(global);
   const valuesMap = {};
   data[1].split('\n').slice(1, -1).map(l => l.split(',')).forEach(l => {
     valuesMap[l[0]] = {
@@ -302,29 +302,28 @@ L.Control.Legend = L.Control.extend({
   onAdd: function(map) {
     const container = L.DomUtil.create('div');
 		container.style.backgroundColor = 'white';
-    //container.style.pointerEvents = 'none';
     container.style.padding = '4px 8px';
 		container.className = 'leaflet-control-layers';
 		container.onMousedown = () => {};
 
-		const title = L.DomUtil.create('h2');
-		title.textContent = 'Legend';
-		title.style.fontSize = '14px';
-		title.style.fontWeight = 'bold';
-		title.style.margin = '0 0 6px 0';
-		container.appendChild(title);
+    const title = L.DomUtil.create('h2');
+    title.textContent = 'Legend';
+    title.style.fontSize = '14px';
+    title.style.fontWeight = 'bold';
+    title.style.margin = '0 0 6px 0';
+    container.appendChild(title);
 
     const intro = L.DomUtil.create('div');
     intro.style.maxWidth = '20em';
     intro.innerHTML = '<p>Supplementary Data and Visualizations for the Paper “<i>An Analysis of the Spatial and Temporal Distribution of Large-Scale Data Production Events in OpenStreetMap</i>” by A. Yair Grinberger¹, Moritz Schott², Martin Raifer³ and Alexander Zipf²³. See <a href="https://github.com/GIScience/OSM_Events#readme">the project readme</a> for more information</a>.</p>'
-      + '<span style="font-size:75%">¹Deparment of Geography, The Hebrew University of Jerusalem, Israel; ²GIScience research group, Institute of Geography, Heidelberg University, Germany; ³Heidelberg Institute for Geoinformation Technology, Germany</span></p>';
+        + '<span style="font-size:75%">¹Deparment of Geography, The Hebrew University of Jerusalem, Israel; ²GIScience research group, Institute of Geography, Heidelberg University, Germany; ³Heidelberg Institute for Geoinformation Technology, Germany</span></p>';
     container.appendChild(intro);
 
     const scale = L.DomUtil.create('div');
-		scale.style.position = 'relative';
+    scale.style.position = 'relative';
     scale.style.width = '20em';
     scale.style.height = '18px';
-		scale.style.margin = '0 0 8px 0';
+    scale.style.margin = '0 0 8px 0';
     const leftLabel = L.DomUtil.create('span');
     leftLabel.textContent = '0%';
     leftLabel.style.position = 'absolute';
@@ -337,26 +336,26 @@ L.Control.Legend = L.Control.extend({
     scale.appendChild(rightLabel);
     map.on('baselayerchange', l => {
       const color = eventTypes[l.name].color;
-      scale.style.background = 'linear-gradient(90deg, ' +
-        'rgba(0,0,0,0) 0%, ' +
-        color + ' 100%)';
+      scale.style.background = 'linear-gradient(90deg, '
+          + 'rgba(0,0,0,0) 0%, '
+          + color + ' 100%)';
     });
-		container.appendChild(scale);
+    container.appendChild(scale);
 
     const stripes = L.DomUtil.create('div');
-		stripes.style.margin = '0 0 6px 0';
+    stripes.style.margin = '0 0 6px 0';
     const stripesIcon = L.DomUtil.create('div');
-		stripesIcon.style.display = 'inline-block';
-		stripesIcon.style.verticalAlign = 'baseline';
-		stripesIcon.style.width = '40px';
+    stripesIcon.style.display = 'inline-block';
+    stripesIcon.style.verticalAlign = 'baseline';
+    stripesIcon.style.width = '40px';
     stripesIcon.style.height = '14px';
-		stripesIcon.style.background = 'repeating-linear-gradient( -45deg, gray, gray 0.9px, rgba(0,0,0,0) 1px, rgba(0,0,0,0) 6px )';
+    stripesIcon.style.background = 'repeating-linear-gradient( -45deg, gray, gray 0.9px, rgba(0,0,0,0) 1px, rgba(0,0,0,0) 6px )';
     const stripesLabel = L.DomUtil.create('span');
-		stripesLabel.textContent = 'insufficient data';
-		stripesLabel.style.marginLeft = '4px';
-		stripes.appendChild(stripesIcon);
-		stripes.appendChild(stripesLabel);
-		container.appendChild(stripes);
+    stripesLabel.textContent = 'insufficient data';
+    stripesLabel.style.marginLeft = '4px';
+    stripes.appendChild(stripesIcon);
+    stripes.appendChild(stripesLabel);
+    container.appendChild(stripes);
 
     return container;
   }
