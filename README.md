@@ -1,7 +1,8 @@
 # OSM Events
 
-Procedures for data extraction, analysis, and visualization for the paper 
-“An Analysis of the Spatial and Temporal Distribution of Large-Scale Data Production Events in OpenStreetMap” (in press).
+Procedures for data extraction, analysis, and visualization for the paper
+
+**Grinberger, A. Y., Schott, M., Raifer, M. & Zipf, A.** (2021) _An analysis of the spatial and temporal distribution of large‐scale data production events in OpenStreetMap_. In: Transactions in GIS https://doi.org/10.1111/tgis.12746 
 
 This repository consists of three sections:
 1. A Java [OSHDB](https://heigit.org/big-spatial-data-analytics-en/ohsome/) query which extracts various data regarding OpenStreetMap edits at a monthly temporal resolution for each cell within a custom grid. This can be found under the [Extraction](https://github.com/GIScience/OSM_Events/tree/main/Extraction) folder. The output of this procedure is a csv file named 'months_results', stored under Extraction\Target, which includes the data for each cell and month combination (a zipped version of this file is stored under [Outputs](https://github.com/GIScience/OSM_Events/tree/main/Outputs)). For more details see the [README](https://github.com/GIScience/OSM_Events/blob/main/Extraction/README.md) file for this section.
