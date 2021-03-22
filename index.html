@@ -253,7 +253,7 @@ const eventTypes = {
 const dataLayers = {};
 Object.keys(eventTypes).forEach(type => {
   dataLayers[type] = L.geoJSON(undefined, {
-  attribution: 'Overlay: Results from the Paper <span title="“An Analysis of the Spatial and Temporal Distribution of Large-Scale Data Production Events in OpenStreetMap”">“[…] Large-Scale Data Production Events in OpenStreetMap”</span>',
+  attribution: 'Overlay: Results from the Paper <a href="https://doi.org/10.1111/tgis.12746" title="“An Analysis of the Spatial and Temporal Distribution of Large-Scale Data Production Events in OpenStreetMap”">“[…] Large-Scale Data Production Events in OpenStreetMap”</a>',
     style: feature => ({
       weight: 0,
       fillColor: eventTypes[type].color,
@@ -315,7 +315,7 @@ L.Control.Legend = L.Control.extend({
 
     const intro = L.DomUtil.create('div');
     intro.style.maxWidth = '20em';
-    intro.innerHTML = '<p>Supplementary Data and Visualizations for the Paper “<i>An Analysis of the Spatial and Temporal Distribution of Large-Scale Data Production Events in OpenStreetMap</i>” by A. Yair Grinberger¹, Moritz Schott², Martin Raifer³ and Alexander Zipf²³. See <a href="https://github.com/GIScience/OSM_Events#readme">the project readme</a> for more information</a>.</p>'
+    intro.innerHTML = '<p>Supplementary Data and Visualizations for the Paper <a href="https://doi.org/10.1111/tgis.12746">“<i>An Analysis of the Spatial and Temporal Distribution of Large-Scale Data Production Events in OpenStreetMap</i>”</a> by A. Yair Grinberger¹, Moritz Schott², Martin Raifer³ and Alexander Zipf²³. See <a href="https://github.com/GIScience/OSM_Events#readme">the project readme</a> for more information</a>.</p>'
         + '<span style="font-size:75%">¹Deparment of Geography, The Hebrew University of Jerusalem, Israel; ²GIScience research group, Institute of Geography, Heidelberg University, Germany; ³Heidelberg Institute for Geoinformation Technology, Germany</span></p>';
     container.appendChild(intro);
 
